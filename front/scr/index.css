@@ -2,4 +2,70 @@
 :root {
   --pitch-green: #2d5a27;
   --pitch-stripe: #234a1f;
+  --background-color: #f9fafb;
+  --text-color: #1f2937;
+  --card-bg: #ffffff;
+  --primary-color: #3b82f6;
+  --secondary-color: #6b7280;
+  --border-color: #e5e7eb;
+  --highlight-color: #dbeafe;
+  --danger-color: #ef4444;
+  --success-color: #10b981;
+}
+.dark-theme {
+  --background-color: #111827;
+  --text-color: #f9fafb;
+  --card-bg: #1f2937;
+  --card-highlight: #374151;
+  --primary-color: #60a5fa;
+  --secondary-color: #9ca3af;
+  --border-color: #374151;
+  --highlight-color: #1e3a8a;
+  --danger-color: #f87171;
+  --success-color: #34d399;
+  --score-color: #60a5fa;
+  --header-bg: #1e3a8a;
+  --position-bg: #1f2937;
+  --input-bg: #1f2937;
+  --input-border: #374151;
+  --input-text: #f9fafb;
+  --modal-bg: #111827;
+  --modal-header: #1e3a8a;
+}
+.dark-theme .bg-white {
+  background-color: var(--card-bg);
+  color: var(--text-color);
+}
+
+.dark-theme .bg-gray-50 {
+  background-color: var(--background-color);
+}
+
+.dark-theme .text-gray-600,
+.dark-theme .text-gray-500 {
+  color: #9ca3af;
+}
+
+.dark-theme .border-red-200 {
+  border-color: #4b2c2c;
+}
+
+.dark-theme .border-green-200 {
+  border-color: #294636;
+}
+
+.dark-theme .bg-red-50 {
+  background-color: #392121;
+}
+
+.dark-theme .bg-green-50 {
+  background-color: #1f3327;
+}
+
+.dark-theme .bg-blue-50 {
+  background-color: #1f2b47;
+}
+
+.dark-theme .bg-yellow-50 {
+  background-color: #433519;
 }
