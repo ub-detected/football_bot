@@ -27,6 +27,19 @@ export const userApi = {
         handleApiError(error);
         return null;
     }
-}
+    },
+    getAllUsers: async () => {
+        try {
+            const response = await fetch(`${API_URL}/users`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch all users');
+            }
+            return await response.json();
+        } catch (error) {
+            handleApiError(error);
+            return null;
+        }
+    }
+
   
 };
