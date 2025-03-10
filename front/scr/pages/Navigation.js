@@ -16,9 +16,35 @@ const Navigation = () => {
                     <Trophy size={24} />
                     <span className="text-xs mt-1">Leaderboard</span>
                 </NavLink>
-                {/**/}
+                <NavLink
+          to="/games"
+          className={({ isActive }) =>
+            `flex flex-col items-center w-1/3 py-1 ${
+              isActive 
+                ? 'text-green-600 font-semibold active-tab' 
+                : 'text-gray-600'
+            }`
+          }
+        >
+          <GamepadIcon size={24} />
+          <span className="text-xs mt-1">Games</span>
+        </NavLink>
+        <NavLink
+          to="/profile"
+          className={({ isActive }) =>
+            `flex flex-col items-center w-1/3 py-1 ${
+              isActive 
+                ? 'text-green-600 font-semibold active-tab' 
+                : 'text-gray-600'
+            }`
+          }
+        >
+          <User size={24} />
+          <span className="text-xs mt-1">Profile</span>
+        </NavLink>      
             </div>
         </nav>
+
     );
 };
 
