@@ -1,40 +1,40 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { userApi } from '../api';
 import { User } from '../types';
-import { Trophy, Medal } from 'lucide-react';
+import { Trophy, Medal, RefreshCw, ChevronDown, ArrowLeft, Clock, UserIcon } from 'lucide-react';
 
 const Leaderboard = () => {
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const listContainerRef = useRef(null);
 
   useEffect(() => {
-    loadUsers();
+    loadPlayers();
   }, []);
 
-  const loadUsers = async () => {
+  const loadPlayers = async () => {
     try {
-      const { users: newUsers, pagination } = await userApi.getLeaderboard(page);
-      setUsers(prev => [...prev, ...newUsers]);
-      setHasMore(page < pagination.total_pages);
+      setIsLoading(true);
+            const response = await fetch(`http://localhost:5001/api/leaderboard?page=${page}`);
+            const data = await response.json();
+            setUsers(prevPlayers => [...prevPlayers, ...data.users]);
+            setHasMore(page < data.pagination.total_pages);
     } catch (error) {
       console.error('Failed to load users:', error);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   const handleScroll = () => {
-    if (!listContainerRef.current || loading || loadingMore || !hasMore) return;
-
-    const { scrollTop, scrollHeight, clientHeight } = listContainerRef.current;
-
-    if (scrollTop + clientHeight >= scrollHeight - 100) {
-      loadMore();
-    }
+    if (!listContainerRef.current || isLoading || loadingMore || !hasMore) return;
+        const { scrollTop, scrollHeight, clientHeight } = listContainerRef.current;
+        if (scrollTop + clientHeight >= scrollHeight - 100) {
+            loadMore();
+        }
   };
 
   const loadMore = async () => {
@@ -43,11 +43,19 @@ const Leaderboard = () => {
     try {
       setLoadingMore(true);
       setPage(prev => prev + 1);
-      await loadUsers();
+      await loadPlayers();
     } finally {
       setLoadingMore(false);
     }
   };
+  if (isLoading && players.length === 0) {
+    return (
+        <div className="p-4">
+            <h1 className="text-2xl font-bold mb-4">Таблица лидеров</h1>
+            <div className="text-center">Загрузка...</div>
+        </div>
+    );
+}
 
   return (
     <div className="p-4 pb-20">
