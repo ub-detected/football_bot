@@ -55,7 +55,22 @@ export const userApi = {
         }
     },
 
-
+    setThemePreference: async (theme: 'light' | 'dark'): Promise<User> => {
+        try {
+          const response = await fetch(`${API_URL}/users/theme-preference`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ theme })
+          });
+          if (!response.ok) throw new Error('Failed to set theme preference');
+          return await response.json();
+        } catch (error) {
+          return handleApiError(error);
+        }
+      }
+    };
     // ПОТОМ УДАЛИТЬ 
     setCurrentUser: async (userId) => {
         try {
