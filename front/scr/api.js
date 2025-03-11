@@ -39,7 +39,64 @@ export const userApi = {
             handleApiError(error);
             return null;
         }
-    }
+    },
 
-  
+    getLeaderboard: async (page = 1, perPage = 10) => {
+        try {
+            const response = await fetch(`${API_URL}/leaderboard?page=${page}&per_page=${perPage}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch leaderboard');
+            }
+            return await response.json();
+        } catch (error) {
+            handleApiError(error);
+            return null;
+        }
+    },
+
+
+    // ПОТОМ УДАЛИТЬ 
+    setCurrentUser: async (userId) => {
+        try {
+            try {
+                const response = await fetch(`${API_URL}/users/switch/${userId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    return await response.json();
+                }
+            } catch (switchError) {
+                console.warn('New endpoint failed, trying legacy endpoint');
+            }
+
+            const response = await fetch(`${API_URL}/users/set-current/${userId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            if (!response.ok) {
+                let errorText;
+                try {
+                    errorText = await response.text();
+                } catch {
+                    errorText = 'Не удалось получить текст ошибки';
+                }
+
+                throw new Error(`Failed to set current user with ID ${userId}. Status: ${response.status}. Response: ${errorText}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('API Error (setCurrentUser):', error);
+            throw error;
+        }
+    },
+
+    
+    
+
 };
