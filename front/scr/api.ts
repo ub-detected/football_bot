@@ -1,3 +1,4 @@
+import { User} from './types';
 export const API_URL = 'http://localhost:5001/api';
 
 const handleApiError = error => { throw error; };

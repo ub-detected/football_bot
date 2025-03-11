@@ -1,8 +1,14 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Trophy, Award, Star, Users, X, ChevronDown, ChevronUp, Moon, Sun } from 'lucide-react';
+import { userApi } from '../api';
+import { User} from '../types';
+
+
 const Profile = () => {
-    const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [historyLoading, setHistoryLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(true);
     const isFirstRender = useRef(true);
     const fetchUserData = useCallback(async () => {
         try {
