@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Trophy, Award, Star, Users, X, ChevronDown, ChevronUp, Moon, Sun } from 'lucide-react';
 import { userApi } from '../api';
-import { User} from '../types';
-
+import { User, GameHistory} from '../types';
+import ThemeSwitch from '../adds/ThemeSwitch';
 
 const Profile = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [gameHistory, setGameHistory] = useState<GameHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
     const isFirstRender = useRef(true);
     const fetchUserData = useCallback(async () => {
@@ -22,6 +23,19 @@ const Profile = () => {
           setLoading(false);
         }
       }, []);
+      const fetchGameHistory = useCallback(async () => {
+        if (!user) return;
+        
+        try {
+          setHistoryLoading(true);
+          const history = await userApi.getGameHistory();
+          setGameHistory(history);
+        } catch (err) {
+          // Обработка ошибки без вывода в консоль
+        } finally {
+          setHistoryLoading(false);
+        }
+      }, [user]);
     useEffect(() => {
         if (isFirstRender.current) {
           fetchUserData().then(() => {
@@ -104,6 +118,7 @@ const Profile = () => {
                       <div>
                         <h3 className="font-medium">Тема оформления</h3>
                         <p className="text-sm text-gray-500">Выберите светлую или темную тему</p>
+                        <ThemeSwitch initialTheme={user.themePreference || 'light'} />
                       </div>
                     </div>
                   </div>
