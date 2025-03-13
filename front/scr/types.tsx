@@ -24,3 +24,4 @@ export interface GameHistory {
   gameEndTime?: string;
   gameDuration?: string;
 }
+
