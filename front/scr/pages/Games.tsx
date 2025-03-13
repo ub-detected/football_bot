@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback} from 'react';
+import React, { useState, useRef, useEffect, useCallback} from 'react';
 import { userApi } from '../api';
 import { User } from '../types';
 import { API_URL } from '../api';
@@ -108,7 +108,33 @@ const Games = () => {
         }
       }, [navigate, searchQuery, locationFilter, selectedTimeRanges]);
     
+      useEffect(() => {
+        const handleScroll = () => {
+          isScrolling.current = true;
+          const timer = setTimeout(() => {
+            isScrolling.current = false;
+          }, 100);
+          
+          return () => clearTimeout(timer);
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => {
+          window.removeEventListener('scroll', handleScroll);
+        };
+      }, []);
 
+      useEffect(() => {
+        if (isFirstRender.current) {
+          fetchData();
+          isFirstRender.current = false;
+        } else {
+          fetchData();
+        }
+      }, [fetchData, searchQuery, locationFilter, selectedTimeRanges]);
+    
+      // ДОБАВИТЬ ПРОВЕРКУ НАЛИЧИЯ ПОЛЬЗОВАТЕЛЯ В ИГРЕ
+
+      
 };
 
 export default Games;
