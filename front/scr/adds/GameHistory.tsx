@@ -71,7 +71,9 @@ const GameHistoryList: React.FC<GameHistoryListProps> = ({ history: initialHisto
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
+  const [expanded, setExpanded] = useState(true);
   const isLoadingRef = useRef(false);
+  const listContainerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setHistory(initialHistory);
     setLoading(initialLoading);
@@ -97,5 +99,113 @@ const GameHistoryList: React.FC<GameHistoryListProps> = ({ history: initialHisto
       isLoadingRef.current = false;
     }
   }, [page, hasMore]);
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!listContainerRef.current || loading || loadingMore || !hasMore) return;
+      
+      const { scrollTop, scrollHeight, clientHeight } = listContainerRef.current;
+      if (scrollTop + clientHeight >= scrollHeight - 100) {
+        fetchMoreHistory();
+      }
+    };
+    
+    const listContainer = listContainerRef.current;
+    if (listContainer) {
+      listContainer.addEventListener('scroll', handleScroll);
+    }
+    return () => {
+      if (listContainer) {
+        listContainer.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, [loading, loadingMore, hasMore, fetchMoreHistory]);
+
+  const toggleExpanded = () => {
+    setExpanded(!expanded);
+  };
+
+  if (loading && history.length === 0) {
+    return (
+      <div className="mt-6">
+        <div className="text-gray-700 font-semibold mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Clock size={18} />
+            <span>История игр</span>
+          </div>
+          <div className="animate-pulse h-6 w-6 bg-gray-200 rounded-full"></div>
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="bg-white rounded-xl p-4 shadow-md animate-pulse">
+              <div className="h-5 w-32 bg-gray-200 mb-2 rounded"></div>
+              <div className="h-4 w-24 bg-gray-200 mb-2 rounded"></div>
+              <div className="h-6 w-20 bg-gray-300 rounded"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (history.length === 0) {
+    return (
+      <div className="mt-6">
+        <div className="text-gray-700 font-semibold mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Clock size={18} />
+            <span>История игр</span>
+          </div>
+          <div className="w-6"></div>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-md text-center text-gray-500">
+          <p>У вас пока нет завершенных игр</p>
+        </div>
+      </div>
+    );
+}
+  return (
+    <div className="mt-6">
+      <div 
+        className="text-gray-700 font-semibold mb-3 flex items-center justify-between cursor-pointer"
+        onClick={toggleExpanded}
+      >
+        <div className="flex items-center gap-2">
+          <Clock size={18} />
+          <span>История игр ({history.length})</span>
+        </div>
+        <div className="text-blue-600">
+          {expanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+        </div>
+      </div>
+      {expanded && (
+        <div 
+          ref={listContainerRef}
+          className="max-h-[400px] overflow-y-auto no-scrollbar bg-white rounded-xl shadow-md p-4"
+        >
+          {history.map((game) => (
+            <GameHistoryItem key={game.id} game={game} />
+          ))}
+          {loadingMore && (
+            <div className="flex justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-600"></div>
+            </div>
+          )}
+          {!loadingMore && hasMore && (
+            <button 
+              onClick={fetchMoreHistory}
+              className="w-full py-2 flex items-center justify-center gap-2 text-blue-600 font-medium"
+            >
+              <ChevronDown size={16} />
+              Загрузить еще
+            </button>
+          )}
+          {!hasMore && history.length > 0 && (
+            <div className="text-center text-gray-500 py-2">
+              Вы достигли конца списка
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 };
 export default GameHistoryList; 
