@@ -10,8 +10,8 @@ const Profile = () => {
   const [error, setError] = useState<string | null>(null);
   const [gameHistory, setGameHistory] = useState<GameHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
-    const isFirstRender = useRef(true);
-    const fetchUserData = useCallback(async () => {
+  const isFirstRender = useRef(true);
+  const fetchUserData = useCallback(async () => {
         try {
           setLoading(true);
           const userData = await userApi.getCurrentUser();
@@ -23,7 +23,7 @@ const Profile = () => {
           setLoading(false);
         }
       }, []);
-      const fetchGameHistory = useCallback(async () => {
+  const fetchGameHistory = useCallback(async () => {
         if (!user) return;
         
         try {
@@ -31,7 +31,6 @@ const Profile = () => {
           const history = await userApi.getGameHistory();
           setGameHistory(history);
         } catch (err) {
-          // Обработка ошибки без вывода в консоль
         } finally {
           setHistoryLoading(false);
         }
@@ -43,9 +42,14 @@ const Profile = () => {
           });
         }
       }, [fetchUserData]);
-      const handleRefresh = () => {
+    useEffect(() => {
+    if (user && !isFirstRender.current) {
+      fetchGameHistory();
+    }
+  }, [user, fetchGameHistory]);
+    const handleRefresh = () => {
         fetchUserData().then(() => {
-          {/*ДОБАВИТЬ ОБНОВЛЕНИЕ ИСТОРИИ ИГР!!!!!!*/};
+          fetchGameHistory();
         });
       };
       return (
