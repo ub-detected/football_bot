@@ -36,7 +36,21 @@ const Games = () => {
         return timeRanges[index];
       };
       const [timeSliderValue, setTimeSliderValue] = useState(8)
-      
+      const [selectedTimeRanges, setSelectedTimeRanges] = useState<string[]>([]);
+
+      const handleTimeSliderChange = (value: number) => {
+        setTimeSliderValue(value);
+        const timeRange = getTimeRangeFromSlider(value);
+        setNewGame({ ...newGame, timeRange });
+      };
+      const handleTimeRangeFilterToggle = (timeRange: string) => {
+        if (selectedTimeRanges.includes(timeRange)) {
+          setSelectedTimeRanges(prev => prev.filter(item => item !== timeRange));
+        } else {
+          setSelectedTimeRanges(prev => [...prev, timeRange]);
+        }
+      };
+    
 };
 
 export default Games;
