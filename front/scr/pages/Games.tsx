@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom';
 const Games = () => {
     const isFirstRender = useRef(true);
     const isScrolling = useRef(false);
+    const [isJoiningGame, setIsJoiningGame] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const [locationFilter, setLocationFilter] = useState('');
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -133,8 +135,59 @@ const Games = () => {
       }, [fetchData, searchQuery, locationFilter, selectedTimeRanges]);
     
       // ДОБАВИТЬ ПРОВЕРКУ НАЛИЧИЯ ПОЛЬЗОВАТЕЛЯ В ИГРЕ
+      const handleRefresh = () => {
+        fetchData(true);
+      };
+    
+      const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+          setLoading(true);
+          // СОЗДАТЬ НОВУЮ КОМНАТУ
+          setNewGame({
+            name: '',
+            location: '',
+            maxPlayers: 16,
+            timeRange: ''
+          });
+          setIsModalOpen(false);
+          await fetchData(true);
+        } catch (err) {
+          setError('Не удалось создать игровую комнату. Пожалуйста, попробуйте позже.');
+        } finally {
+          setLoading(false);
+        }
+      };
+    
+      const handleJoinGame = async (roomId: number) => {
+        try {
+          setIsJoiningGame(true);
+          setLoading(true);
+          //ДОБАВИТЬ ОБНАВЛЕНИЕ СПИСКА КОМНАТ
+          await fetchData(true);
+        } catch (err: any) {
+          if (err.response && err.response.data && err.response.data.activeRooms && err.response.data.activeRooms.length > 0) {
+            const activeRoom = err.response.data.activeRooms[0];
+            navigate(`/game-rooms/${activeRoom.id}`);
+            return;
+          }
+          setError('Не удалось присоединиться к игровой комнате. Пожалуйста, попробуйте позже.');
+        } finally {
+          setLoading(false);
+          setIsJoiningGame(false);
+        }
+      };
 
-      
+      const handleLeaveGame = async (roomId: number) => {
+        try {
+          setLoading(true);
+          await fetchData(true);
+        } catch (err) {
+          setError('Не удалось покинуть игровую комнату. Пожалуйста, попробуйте позже.');
+        } finally {
+          setLoading(false);
+        }
+      };
 };
 
 export default Games;
