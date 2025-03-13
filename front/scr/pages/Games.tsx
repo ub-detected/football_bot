@@ -1,5 +1,18 @@
-import React, { useState} from 'react';
+import React, { useState, useRef, useCallback} from 'react';
+import { userApi } from '../api';
+import { User } from '../types';
+import { API_URL } from '../api';
+import { useNavigate } from 'react-router-dom';
+
 const Games = () => {
+    const isFirstRender = useRef(true);
+    const isScrolling = useRef(false);
+    const [locationFilter, setLocationFilter] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [error, setError] = useState('');
+    const navigate = useNavigate();
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [newGame, setNewGame] = useState({
       name: '',
       location: '',
@@ -51,6 +64,51 @@ const Games = () => {
         }
       };
     
+
+      const fetchData = useCallback(async (force = false) => {
+        if (isScrolling.current && !force) return;
+        try {
+          setLoading(true);
+          const queryParams: {
+            name?: string;
+            location?: string;
+            timeRange?: string;
+          } = {};
+          if (searchQuery) queryParams.name = searchQuery;
+          if (locationFilter) queryParams.location = locationFilter;
+          if (selectedTimeRanges.length > 0) {
+            queryParams.timeRange = selectedTimeRanges.join(',');
+          }
+          const [userData] = await Promise.all([
+            //ДОБАВИТЬ ВЗАИМОДЕЙСТВИЕ С ГЕЙМРУМ
+            userApi.getCurrentUser()
+          ]);
+          setCurrentUser(userData);
+          setError('');
+          try {
+            const response = await fetch(`${API_URL}/user-active-rooms`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            });
+            if (response.ok) {
+              const data = await response.json();
+              if (data.activeRooms && data.activeRooms.length > 0) {
+                navigate(`/game-rooms/${data.activeRooms[0].id}`);
+                return;
+              }
+            }
+          } catch (err) {
+          }
+        } catch (err) {
+          setError('Не удалось загрузить список игр. Пожалуйста, попробуйте позже.');
+        } finally {
+          setLoading(false);
+        }
+      }, [navigate, searchQuery, locationFilter, selectedTimeRanges]);
+    
+
 };
 
 export default Games;
