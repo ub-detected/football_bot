@@ -65,3 +65,37 @@ const GameHistoryItem: React.FC<{ game: GameHistory }> = ({ game }) => {
         </div>
       );
     };
+const GameHistoryList: React.FC<GameHistoryListProps> = ({ history: initialHistory, loading: initialLoading }) => {
+  const [history, setHistory] = useState<GameHistory[]>(initialHistory);
+  const [loading, setLoading] = useState(initialLoading);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
+  const isLoadingRef = useRef(false);
+  useEffect(() => {
+    setHistory(initialHistory);
+    setLoading(initialLoading);
+  }, [initialHistory, initialLoading]);
+  const fetchMoreHistory = useCallback(async () => {
+    if (isLoadingRef.current || !hasMore) return;
+    try {
+      setLoadingMore(true);
+      isLoadingRef.current = true;
+      const nextPage = page + 1;
+      const moreHistory = await userApi.getGameHistory(nextPage);
+      if (moreHistory.length === 0) {
+        setHasMore(false);
+      } else {
+        setHistory(prev => [...prev, ...moreHistory]);
+        setPage(nextPage);
+      }
+    } catch (err) {
+      console.error('Error fetching more game history:', err);
+      setHasMore(false);
+    } finally {
+      setLoadingMore(false);
+      isLoadingRef.current = false;
+    }
+  }, [page, hasMore]);
+};
+export default GameHistoryList; 
