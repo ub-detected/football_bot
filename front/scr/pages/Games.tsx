@@ -188,6 +188,21 @@ const Games = () => {
           setLoading(false);
         }
       };
+      const handleMaxPlayersChange = (value: number) => {
+        setNewGame({ ...newGame, maxPlayers: value });
+      };
+
+      const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+      };
+
+      const clearFilters = () => {
+        setSearchQuery('');
+        setLocationFilter('');
+        setSelectedTimeRanges([]);
+      };
+      
+      
 };
 
 export default Games;
