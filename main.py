@@ -1,4 +1,3 @@
-
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -8,18 +7,30 @@ import os
 import random
 import re
 from locations import search_locations, get_all_locations
+from sqlalchemy import or_
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "http://localhost:5173"}})
 
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://postgres:************@localhost:5000/tg_miniapp')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://postgres:*********@localhost:5000/tg_miniapp')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
-# ВАЖНО: Удалить перед релизом!
 current_user_id = None
+
+# ВАЖНО: Удалить этот эндпоинт перед релизом!
+@app.route('/api/users/set-current/<int:user_id>', methods=['POST'])
+def set_current_user(user_id):
+    global current_user_id
+    
+    print(f"Setting current user to ID: {user_id}")
+    user = User.query.get_or_404(user_id)
+    current_user_id = user.id
+    result = user.to_dict()
+    print(f"Current user set to: {result}")
+    return jsonify(result)
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -33,6 +44,7 @@ class User(db.Model):
     telegram_id = db.Column(db.String(100), unique=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     score_mismatch_count = db.Column(db.Integer, default=0)
+    theme_preference = db.Column(db.String(10), default='light')
     
     def to_dict(self):
         return {        
@@ -42,7 +54,8 @@ class User(db.Model):
             'score': self.score,
             'gamesPlayed': self.games_played,
             'gamesWon': self.games_won,
-            'scoreMismatchCount': self.score_mismatch_count
+            'scoreMismatchCount': self.score_mismatch_count,
+            'themePreference': self.theme_preference
         }
 
 game_room_players = db.Table('game_room_players',
@@ -73,6 +86,8 @@ class GameRoom(db.Model):
     captain_b_score_submission = db.Column(db.String(10), nullable=True)
     score_submission_attempts = db.Column(db.Integer, default=0)
     score_mismatch = db.Column(db.Boolean, default=False)
+    start_time = db.Column(db.DateTime, nullable=True)
+    end_time = db.Column(db.DateTime, nullable=True)
     
     creator = db.relationship('User', backref='created_rooms', foreign_keys=[creator_id])
     captain_a = db.relationship('User', foreign_keys=[captain_a_id])
@@ -87,8 +102,8 @@ class GameRoom(db.Model):
             'maxPlayers': self.max_players,
             'location': self.location,
             'timeRange': self.time_range,
-            'players': [player.to_dict() for player in self.players],
             'status': self.status,
+            'players': [player.to_dict() for player in self.players],
             'teamA': [player.to_dict() for player in self.team_a],
             'teamB': [player.to_dict() for player in self.team_b],
             'captainA': self.captain_a.to_dict() if self.captain_a else None,
@@ -98,7 +113,10 @@ class GameRoom(db.Model):
             'captainASubmitted': self.captain_a_submitted,
             'captainBSubmitted': self.captain_b_submitted,
             'scoreMismatch': self.score_mismatch,
-            'scoreSubmissionAttempts': self.score_submission_attempts
+            'scoreSubmissionAttempts': self.score_submission_attempts,
+            'startTime': self.start_time.isoformat() + 'Z' if self.start_time else None,
+            'endTime': self.end_time.isoformat() + 'Z' if self.end_time else None,
+            'createdAt': self.created_at.isoformat() + 'Z' if self.created_at else None
         }
 
 team_a_players = db.Table('team_a_players',
@@ -126,11 +144,19 @@ class GameHistory(db.Model):
     points_earned = db.Column(db.Integer, default=0)
     played_at = db.Column(db.DateTime, default=datetime.utcnow)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    game_start_time = db.Column(db.DateTime, nullable=True)
+    game_end_time = db.Column(db.DateTime, nullable=True)
     
     user = db.relationship('User', backref='game_history')
     game_room = db.relationship('GameRoom')
     
     def to_dict(self):
+        duration = None
+        if self.game_start_time and self.game_end_time:
+            duration_seconds = (self.game_end_time - self.game_start_time).total_seconds()
+            minutes = int(duration_seconds // 60)
+            duration = f"{minutes} мин"
+            
         return {
             'id': self.id,
             'user': self.user.to_dict() if self.user else None,
@@ -142,8 +168,11 @@ class GameHistory(db.Model):
             'wasCaptain': self.was_captain,
             'result': self.result,
             'pointsEarned': self.points_earned,
-            'playedAt': self.played_at.isoformat() if self.played_at else None,
-            'createdAt': self.created_at.isoformat() if self.created_at else None
+            'playedAt': self.played_at.isoformat() + 'Z' if self.played_at else None,
+            'createdAt': self.created_at.isoformat() + 'Z' if self.created_at else None,
+            'gameStartTime': self.game_start_time.isoformat() + 'Z' if self.game_start_time else None,
+            'gameEndTime': self.game_end_time.isoformat() + 'Z' if self.game_end_time else None,
+            'gameDuration': duration
         }
 
 class Complaint(db.Model):
@@ -167,7 +196,7 @@ class Complaint(db.Model):
             'reportedUser': self.reported_user.to_dict(),
             'gameRoom': self.game_room.to_dict(),
             'reason': self.reason,
-            'createdAt': self.created_at.isoformat()
+            'createdAt': self.created_at.isoformat() + 'Z'
         }
 
 @app.route('/')
@@ -186,29 +215,13 @@ def get_user(user_id):
 
 @app.route('/api/users/me', methods=['GET'])
 def get_current_user():
-    global current_user_id
-    
-    if current_user_id is not None:
-        user = User.query.get(current_user_id)
+    if not current_user_id:
+        user = User.query.first()
         if user:
             return jsonify(user.to_dict())
+        return jsonify({'error': 'No users in database'}), 404
     
-    user = User.query.first()
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-    
-    if current_user_id is None:
-        current_user_id = user.id
-        
-    return jsonify(user.to_dict())
-
-# ВАЖНО: Это удалить этот эндпоинт перед релизом!
-@app.route('/api/users/set-current/<int:user_id>', methods=['POST'])
-def set_current_user(user_id):
-    global current_user_id
-    
-    user = User.query.get_or_404(user_id)
-    current_user_id = user.id
+    user = User.query.get_or_404(current_user_id)
     return jsonify(user.to_dict())
 
 @app.route('/api/leaderboard', methods=['GET'])
@@ -248,7 +261,14 @@ def get_game_rooms():
     if location_filter:
         query = query.filter(GameRoom.location.ilike(f'%{location_filter}%'))
     if time_range_filter:
-        query = query.filter(GameRoom.time_range.ilike(f'%{time_range_filter}%'))
+        if ',' in time_range_filter:
+            time_ranges = time_range_filter.split(',')
+            time_filters = []
+            for time_range in time_ranges:
+                time_filters.append(GameRoom.time_range.ilike(f'%{time_range.strip()}%'))
+            query = query.filter(or_(*time_filters))
+        else:
+            query = query.filter(GameRoom.time_range.ilike(f'%{time_range_filter}%'))
     
     rooms = query.all()
     
@@ -426,6 +446,24 @@ def start_team_selection(room_id):
     
     return jsonify(room.to_dict())
 
+@app.route('/api/users/theme-preference', methods=['POST'])
+def set_theme_preference():
+    data = request.json
+    theme = data.get('theme')
+    
+    if not theme or theme not in ['light', 'dark']:
+        return jsonify({'error': 'Неверное значение для темы. Допустимые значения: "light", "dark"'}), 400
+    
+    global current_user_id
+    if not current_user_id:
+        return jsonify({'error': 'Пользователь не авторизован'}), 401
+    
+    user = User.query.get_or_404(current_user_id)
+    user.theme_preference = theme
+    db.session.commit()
+    
+    return jsonify(user.to_dict())
+
 @app.route('/api/game-rooms/<int:room_id>/start-game', methods=['POST'])
 def start_game(room_id):
     room = GameRoom.query.get_or_404(room_id)
@@ -440,6 +478,8 @@ def start_game(room_id):
         return jsonify({'error': 'Комната должна быть в статусе выбора команд'}), 400
     
     room.status = 'in_progress'
+    room.start_time = datetime.utcnow()
+    
     db.session.commit()
     
     return jsonify(room.to_dict())
@@ -458,6 +498,8 @@ def end_game(room_id):
         return jsonify({'error': 'Комната должна быть в статусе игры'}), 400
     
     room.status = 'score_submission'
+    room.end_time = datetime.utcnow()
+    
     db.session.commit()
     
     return jsonify(room.to_dict())
@@ -465,36 +507,30 @@ def end_game(room_id):
 @app.route('/api/game-rooms/<int:room_id>/submit-score', methods=['POST'])
 def submit_score(room_id):
     data = request.json
-    score = data.get('score')
+    score = data.get('score', '')
     
-    if not score or not re.match(r'^\d+-\d+$', score):
-        return jsonify({'error': 'Некорректный формат счета, должно быть в формате A-B, например "3-2"'}), 400
+    if not re.match(r'^\d+:\d+$', score):
+        return jsonify({'error': 'Неверный формат счета. Используйте формат "X:Y"'}), 400
     
-    scores = score.split('-')
-    try:
-        score_a = int(scores[0])
-        score_b = int(scores[1])
-    except (ValueError, IndexError):
-        return jsonify({'error': 'Неверный формат счета. Используйте формат "A-B", например "3-2"'}), 400
+    score_parts = score.split(':')
+    score_a = int(score_parts[0])
+    score_b = int(score_parts[1])
     
-    room = GameRoom.query.get(room_id)
-    if not room:
-        return jsonify({'error': 'Игровая комната не найдена'}), 404
+    room = GameRoom.query.get_or_404(room_id)
     
-    user = User.query.get(current_user_id)
-    if not user:
-        return jsonify({'error': 'Пользователь не найден'}), 404
+    global current_user_id
+    current_user = User.query.get(current_user_id) if current_user_id else User.query.first()
     
-    is_captain_a = room.captain_a_id == user.id
-    is_captain_b = room.captain_b_id == user.id
-    
-    if not (is_captain_a or is_captain_b):
+    if room.captain_a_id != current_user.id and room.captain_b_id != current_user.id:
         return jsonify({'error': 'Только капитаны команд могут вводить счет'}), 403
     
-    if is_captain_a:
+    if room.status not in ['score_submission', 'in_progress']:
+        return jsonify({'error': 'Комната должна быть в статусе ввода счета или в игре'}), 400
+    
+    if room.captain_a_id == current_user.id:
         room.captain_a_score_submission = score
         room.captain_a_submitted = True
-    elif is_captain_b:
+    elif room.captain_b_id == current_user.id:
         room.captain_b_score_submission = score
         room.captain_b_submitted = True
     
@@ -505,15 +541,16 @@ def submit_score(room_id):
             
             room.status = 'completed'
             
-            update_player_stats(room)
+            created_history = update_player_stats(room)
+            
+            for history_entry in created_history:
+                db.session.add(history_entry)
             
             db.session.commit()
             
             return jsonify({
                 'message': 'Счет успешно принят. Игра завершена.',
-                'room': room.to_dict(),
-                'captainASubmitted': room.captain_a_submitted,
-                'captainBSubmitted': room.captain_b_submitted
+                'room': room.to_dict()
             })
         else:
             room.score_mismatch = True
@@ -526,15 +563,16 @@ def submit_score(room_id):
                 room.score_b = 0
                 room.status = 'completed'
                 
-                update_player_stats(room)
+                created_history = update_player_stats(room)
+                
+                for history_entry in created_history:
+                    db.session.add(history_entry)
                 
                 db.session.commit()
                 
                 return jsonify({
                     'message': 'Превышено количество попыток ввода счета. Применены штрафы, игра завершена с ничьей.',
-                    'room': room.to_dict(),
-                    'captainASubmitted': False,
-                    'captainBSubmitted': False
+                    'room': room.to_dict()
                 })
             
             room.captain_a_submitted = False
@@ -544,18 +582,14 @@ def submit_score(room_id):
             
             return jsonify({
                 'message': 'Введенные счета не совпадают. Пожалуйста, попробуйте еще раз.',
-                'room': room.to_dict(),
-                'captainASubmitted': room.captain_a_submitted,
-                'captainBSubmitted': room.captain_b_submitted
+                'room': room.to_dict()
             })
     
     db.session.commit()
     
     return jsonify({
         'message': 'Счет успешно отправлен. Ожидание ввода счета от другого капитана.',
-        'room': room.to_dict(),
-        'captainASubmitted': room.captain_a_submitted,
-        'captainBSubmitted': room.captain_b_submitted
+        'room': room.to_dict()
     })
 
 def update_player_stats(room):
@@ -563,8 +597,33 @@ def update_player_stats(room):
     team_b_won = room.score_b > room.score_a
     is_draw = room.score_a == room.score_b
     
+    score_difference = abs(room.score_a - room.score_b)
+    
+    team_a_total_score = sum([player.score for player in room.team_a])
+    team_b_total_score = sum([player.score for player in room.team_b])
+    team_a_avg_score = team_a_total_score / len(room.team_a) if room.team_a else 0
+    team_b_avg_score = team_b_total_score / len(room.team_b) if room.team_b else 0
+    
+    expected_win_a = 1 / (1 + 10 ** ((team_b_avg_score - team_a_avg_score) / 400))
+    expected_win_b = 1 / (1 + 10 ** ((team_a_avg_score - team_b_avg_score) / 400))
+    
+    K = 100
+    
+    base_win_points = K 
+    base_loss_points = -K / 2
+    base_draw_points = 0
+    
+    score_diff_coef = 0.1
+    max_bonus_for_underdog = 15
+    
+    created_history = []
+    
     for player in room.team_a:
+        player_contribution = player.score / team_a_avg_score if team_a_avg_score > 0 else 1
+        player_contribution = max(0.5, min(1.5, player_contribution))
+        
         was_captain = player.id == room.captain_a_id
+        captain_bonus = 1.0
         
         player.games_played += 1
         
@@ -573,14 +632,32 @@ def update_player_stats(room):
         
         if team_a_won:
             player.games_won += 1
-            points_earned = 100
+            points_earned = base_win_points * (1 - expected_win_a)
+            points_earned += score_difference * score_diff_coef
+            points_earned *= player_contribution
+            points_earned *= captain_bonus
             result = "win"
         elif team_b_won:
-            points_earned = 25
+            points_earned = base_loss_points * expected_win_a
+            if expected_win_a < 0.3:
+                underdog_bonus = max_bonus_for_underdog * (1 - expected_win_a / 0.3)
+                points_earned += underdog_bonus
+            points_earned *= player_contribution
+            points_earned *= captain_bonus
             result = "loss"
         else:
-            points_earned = 50
+            if expected_win_a > 0.55:
+                points_earned = -10
+            elif expected_win_a < 0.45:
+                points_earned = 10
+            else:
+                points_earned = 0
             result = "draw"
+        
+        points_earned = int(points_earned)
+        
+        if player.score + points_earned < 0:
+            points_earned = -player.score
             
         player.score += points_earned
             
@@ -596,10 +673,14 @@ def update_player_stats(room):
             points_earned=points_earned,
             played_at=datetime.utcnow()
         )
-        db.session.add(game_history)
+        created_history.append(game_history)
     
     for player in room.team_b:
+        player_contribution = player.score / team_b_avg_score if team_b_avg_score > 0 else 1
+        player_contribution = max(0.5, min(1.5, player_contribution))
+        
         was_captain = player.id == room.captain_b_id
+        captain_bonus = 1.0
         
         player.games_played += 1
         
@@ -608,14 +689,32 @@ def update_player_stats(room):
         
         if team_b_won:
             player.games_won += 1
-            points_earned = 100
+            points_earned = base_win_points * (1 - expected_win_b)
+            points_earned += score_difference * score_diff_coef
+            points_earned *= player_contribution
+            points_earned *= captain_bonus
             result = "win"
         elif team_a_won:
-            points_earned = 25
+            points_earned = base_loss_points * expected_win_b
+            if expected_win_b < 0.3:
+                underdog_bonus = max_bonus_for_underdog * (1 - expected_win_b / 0.3)
+                points_earned += underdog_bonus
+            points_earned *= player_contribution
+            points_earned *= captain_bonus
             result = "loss"
         else:
-            points_earned = 50
+            if expected_win_b > 0.55:
+                points_earned = -10
+            elif expected_win_b < 0.45:
+                points_earned = 10
+            else:
+                points_earned = 0
             result = "draw"
+        
+        points_earned = int(points_earned)
+        
+        if player.score + points_earned < 0:
+            points_earned = -player.score
             
         player.score += points_earned
             
@@ -631,7 +730,13 @@ def update_player_stats(room):
             points_earned=points_earned,
             played_at=datetime.utcnow()
         )
-        db.session.add(game_history)
+        created_history.append(game_history)
+    
+    for history_entry in created_history:
+        history_entry.game_start_time = room.start_time
+        history_entry.game_end_time = room.end_time
+    
+    return created_history
 
 def apply_mismatch_penalties(room):
     captain_a = User.query.get(room.captain_a_id)
@@ -640,7 +745,6 @@ def apply_mismatch_penalties(room):
     def get_penalty_coefficient(captain):
         if not captain:
             return 1.0
-        
         if captain.score_mismatch_count <= 1:
             return 0.0
         elif captain.score_mismatch_count == 2:
@@ -769,7 +873,39 @@ def get_user_game_history():
     if not current_user_id:
         return jsonify({'error': 'Пользователь не найден'}), 404
     
-    history = GameHistory.query.filter_by(user_id=current_user_id).order_by(GameHistory.created_at.desc()).all()
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    
+    if per_page > 50:
+        per_page = 50
+    
+    total_history = GameHistory.query.filter_by(user_id=current_user_id).count()
+    
+    history = GameHistory.query.filter_by(user_id=current_user_id) \
+        .order_by(GameHistory.created_at.desc()) \
+        .offset((page - 1) * per_page) \
+        .limit(per_page) \
+        .all()
+    
+    return jsonify([entry.to_dict() for entry in history])
+
+@app.route('/api/users/<int:user_id>/game-history', methods=['GET'])
+def get_specific_user_game_history(user_id):
+    user = User.query.get_or_404(user_id)
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    
+    if per_page > 50:
+        per_page = 50
+    
+    total_history = GameHistory.query.filter_by(user_id=user_id).count()
+    
+    history = GameHistory.query.filter_by(user_id=user_id) \
+        .order_by(GameHistory.created_at.desc()) \
+        .offset((page - 1) * per_page) \
+        .limit(per_page) \
+        .all()
     
     return jsonify([entry.to_dict() for entry in history])
 
@@ -787,6 +923,29 @@ def search_location():
 @app.route('/api/locations', methods=['GET'])
 def get_locations():
     return jsonify(get_all_locations())
+
+@app.after_request
+def add_cors_headers(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
+@app.route('/', defaults={'path': ''}, methods=['OPTIONS'])
+@app.route('/<path:path>', methods=['OPTIONS'])
+def options_route(path):
+    return '', 200
+
+@app.route('/api/users/switch/<int:user_id>', methods=['POST'])
+def switch_user(user_id):
+    global current_user_id
+    
+    print(f"Switching to user ID: {user_id}")
+    user = User.query.get_or_404(user_id)
+    current_user_id = user.id
+    result = user.to_dict()
+    print(f"Current user switched to: {result}")
+    return jsonify(result)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
