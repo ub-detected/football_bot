@@ -3,6 +3,7 @@ import { Trophy, Award, Star, Users, X, ChevronDown, ChevronUp, Moon, Sun } from
 import { userApi } from '../api';
 import { User, GameHistory} from '../types';
 import ThemeSwitch from '../adds/ThemeSwitch';
+import GameHistoryList from '../adds/GameHistory';
 
 const Profile = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -11,6 +12,7 @@ const Profile = () => {
   const [gameHistory, setGameHistory] = useState<GameHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const isFirstRender = useRef(true);
+
   const fetchUserData = useCallback(async () => {
         try {
           setLoading(true);
@@ -47,6 +49,12 @@ const Profile = () => {
       fetchGameHistory();
     }
   }, [user, fetchGameHistory]);
+
+  const calculateWinRate = () => {
+    if (!user || user.gamesPlayed === 0) return '0%';
+    return `${Math.round((user.gamesWon / user.gamesPlayed) * 100)}%`;
+  };
+
     const handleRefresh = () => {
         fetchUserData().then(() => {
           fetchGameHistory();
@@ -150,7 +158,7 @@ const Profile = () => {
                     <Star size={20} />
                     <span className="font-semibold">Процент побед</span>
                   </div>
-                  <p className="text-2xl font-bold">победки</p>
+                  <p className="text-2xl font-bold">{calculateWinRate()}</p>
                 </div>
     
                 <div className="bg-white rounded-xl p-4 shadow-md mb-6">
@@ -160,6 +168,10 @@ const Profile = () => {
                   </div>
                   <p className="text-2xl font-bold">{user.score}</p>
                 </div>
+                <GameHistoryList 
+              history={gameHistory}
+              loading={historyLoading}
+            />
               </>
             )}
           </div>
