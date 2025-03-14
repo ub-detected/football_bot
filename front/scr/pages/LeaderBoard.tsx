@@ -118,6 +118,11 @@ const Leaderboard = () => {
     }
   };
 
+  const returnToLeaderboard = () => {
+    setSelectedPlayer(null);
+    setPlayerGameHistory([]);
+  };
+
 //ЕСЛИ НЕТ В БАЗЕ ДАННЫХ НИКОГО
   const viewPlayerProfile = async (player: User) => {
     try {
