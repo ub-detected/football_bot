@@ -90,3 +90,24 @@ export const userApi = {
         }
       },
     };
+
+    export const locationApi = {
+        searchLocations: async (query: string): Promise<string[]> => {
+          try {
+            const response = await fetch(`${API_URL}/locations/search?query=${encodeURIComponent(query)}`);
+            if (!response.ok) throw new Error('Failed to search locations');
+            return await response.json();
+          } catch (error) {
+            return handleApiError(error);
+          }
+        },
+        getAllLocations: async (): Promise<string[]> => {
+          try {
+            const response = await fetch(`${API_URL}/locations`);
+            if (!response.ok) throw new Error('Failed to fetch locations');
+            return await response.json();
+          } catch (error) {
+            return handleApiError(error);
+          }
+        }
+    };
