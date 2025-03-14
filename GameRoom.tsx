@@ -641,3 +641,16 @@ const GameRoom = () => {
             )}
           </div>
         )}
+
+        {/* Статус: игра завершена */}
+        {gameRoom.status === 'completed' && (
+          <div className="bg-white rounded-xl shadow-md p-4 mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-lg font-semibold">Статус: Игра завершена</h2>
+              
+              {/* Отображение полученных/потерянных трофеев текущего игрока */}
+              {gameHistory.length > 0 && (
+                <div className={`text-sm font-bold px-3 py-1 rounded-full ${
+                  gameHistory[0].points_earned > 0 
+                    ? 'text-white bg-green-600' 
+        
