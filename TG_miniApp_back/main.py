@@ -13,7 +13,7 @@ app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "http://localhost:5173"}})  # Разрешаем фронтенд
 
 # Конфигурация базы данных
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://postgres:Lesha170306!@localhost:5000/tg_miniapp228')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://postgres:footbot777Azat!@localhost:5432/tg_miniapp228')
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
