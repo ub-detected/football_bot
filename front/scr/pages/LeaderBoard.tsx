@@ -164,7 +164,26 @@ const Leaderboard = () => {
     history.push({
       id: i + 1,
       user: player,
-      //ДОБАВИТЬ ИЗ GAMEROOM которую делает коля
+      gameRoom: {
+        id: 1000 + i,
+        name: gameNames[Math.floor(Math.random() * gameNames.length)],
+        status: 'completed',
+        players: [],
+        teamA: [],
+        teamB: [],
+        creator: player,
+        maxPlayers: 10,
+        location: 'Демо локация',
+        timeRange: 'Демо время',
+        captainA: null,
+        captainB: null,
+        scoreA: scoreA,
+        scoreB: scoreB,
+        captainASubmitted: false,
+        captainBSubmitted: false,
+        scoreMismatch: false,
+        scoreSubmissionAttempts: 0
+      },
       wasWinner: isWin,
       team: Math.random() > 0.5 ? 'A' : 'B',
       scoreA: scoreA,
