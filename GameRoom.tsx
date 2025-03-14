@@ -661,3 +661,23 @@ const GameRoom = () => {
                 </div>
               )}
             </div>
+
+            <div className="flex justify-center items-center gap-4 my-6">
+              <div className="text-center">
+                <div className="text-blue-800 font-bold text-2xl">Команда A</div>
+                <div className="text-4xl font-bold">{gameRoom.scoreA}</div>
+              </div>
+              <div className="text-xl font-bold">:</div>
+              <div className="text-center">
+                <div className="text-red-800 font-bold text-2xl">Команда B</div>
+                <div className="text-4xl font-bold">{gameRoom.scoreB}</div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className={`rounded-xl p-4 ${
+                gameRoom.scoreA !== null && gameRoom.scoreB !== null
+                  ? gameRoom.scoreA > gameRoom.scoreB 
+                    ? 'bg-green-50' 
+                    : gameRoom.scoreA < gameRoom.scoreB 
+                      
