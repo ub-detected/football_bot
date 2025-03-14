@@ -146,7 +146,40 @@ const Leaderboard = () => {
       setLoadingProfile(false);
     }
   };
-
+ //ГЕНЕРАЦИЯ ДЕМО ИГР
+ const generateDemoGameHistory = (player: User, count: number): GameHistory[] => {
+  const history: GameHistory[] = [];
+  const gameResults = ['Победа', 'Поражение', 'Ничья'];
+  const gameNames = ['Футбол во дворе', 'Матч на стадионе', 'Товарищеская игра', 'Вечерний матч', 'Дворовой турнир'];
+  for (let i = 0; i < count; i++) {
+    const isWin = Math.random() > 0.5;
+    const isDraw = !isWin && Math.random() > 0.7;
+    const result = isDraw ? gameResults[2] : (isWin ? gameResults[0] : gameResults[1]);
+    const scoreA = Math.floor(Math.random() * 5);
+    const scoreB = isDraw ? scoreA : (isWin ? Math.floor(Math.random() * scoreA) : scoreA + 1 + Math.floor(Math.random() * 3));
+    const pointsEarned = isDraw ? 0 : (isWin ? 10 + Math.floor(Math.random() * 20) : -1 * (5 + Math.floor(Math.random() * 15)));
+    const daysAgo = Math.floor(Math.random() * 60);
+    const playedAt = new Date();
+    playedAt.setDate(playedAt.getDate() - daysAgo);
+    history.push({
+      id: i + 1,
+      user: player,
+      //ДОБАВИТЬ ИЗ GAMEROOM которую делает коля
+      wasWinner: isWin,
+      team: Math.random() > 0.5 ? 'A' : 'B',
+      scoreA: scoreA,
+      scoreB: scoreB,
+      wasCaptain: Math.random() > 0.7,
+      result: result,
+      pointsEarned: pointsEarned,
+      playedAt: playedAt.toISOString(),
+      createdAt: playedAt.toISOString()
+    });
+  }
+  return history.sort((a, b) => 
+    new Date(b.playedAt).getTime() - new Date(a.playedAt).getTime()
+  );
+};
 
   return (
     <div className="p-4 pb-20">
