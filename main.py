@@ -886,7 +886,7 @@ def get_user_game_history():
         .offset((page - 1) * per_page) \
         .limit(per_page) \
         .all()
-    
+        
     return jsonify([entry.to_dict() for entry in history])
 
 @app.route('/api/users/<int:user_id>/game-history', methods=['GET'])
