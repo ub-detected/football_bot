@@ -4,6 +4,7 @@ import { Users, MapPin, Clock, Crown, Plus, X, Castle as Whistle, Search, Filter
 import { User } from '../types';
 import { API_URL } from '../api';
 import { useNavigate } from 'react-router-dom';
+import LocationAutocomplete from '../adds/LocationAutocomplete';
 
 const Games = () => {
     const isFirstRender = useRef(true);
@@ -250,6 +251,12 @@ const Games = () => {
               <div className="mt-3 bg-white/10 backdrop-blur-sm rounded-xl p-3 animate-fade-in">
                 <div className="mb-3">
                   <label className="block text-white/90 text-sm mb-1">Локация</label>
+                  <LocationAutocomplete
+                    value={locationFilter}
+                    onChange={setLocationFilter}
+                    placeholder="Введите район или стадион..."
+                    darkMode={true}
+              />
                 </div>
                 <div>
                   <label className="block text-white/90 text-sm mb-1">Временной интервал</label>
@@ -345,6 +352,12 @@ const Games = () => {
                   </div>
                   <div className="mb-4">
                     <label className="block mb-1">Локация</label>
+                    <LocationAutocomplete
+                  value={newGame.location}
+                  onChange={(location) => setNewGame({...newGame, location})}
+                  placeholder="Введите район или стадион"
+                  darkMode={document.documentElement.classList.contains('dark-theme')}
+                />
                   </div>
                   <div className="mb-4">
                     <label className="block mb-2">
