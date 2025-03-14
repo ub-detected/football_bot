@@ -653,4 +653,11 @@ const GameRoom = () => {
                 <div className={`text-sm font-bold px-3 py-1 rounded-full ${
                   gameHistory[0].points_earned > 0 
                     ? 'text-white bg-green-600' 
-        
+                    : gameHistory[0].points_earned < 0 
+                    ? 'text-white bg-red-600' 
+                    : 'text-gray-800 bg-gray-200'
+              }`}>
+                {gameHistory[0].points_earned > 0 ? '+' : ''}{gameHistory[0].points_earned} ⭐
+              </div>
+            )}
+          </div>
