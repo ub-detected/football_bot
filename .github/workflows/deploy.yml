@@ -36,6 +36,142 @@ jobs:
         push: true
         tags: ubdetected/footbot-frontend:latest
 
+    - name: Generate Docker Compose file
+      run: |
+        cat > docker-compose.yml << 'EOF'
+        version: '3'
+
+        services:
+          db:
+            image: postgres:16
+            volumes:
+              - postgres_data:/var/lib/postgresql/data
+            environment:
+              - POSTGRES_PASSWORD=footbot777Azat
+              - POSTGRES_USER=postgres
+              - POSTGRES_DB=mydb
+            ports:
+              - "5432:5432"
+            networks:
+              - app-network
+            healthcheck:
+              test: ["CMD-SHELL", "pg_isready -U postgres"]
+              interval: 5s
+              timeout: 5s
+              retries: 5
+
+          nginx:
+            image: nginx:alpine
+            ports:
+              - "80:80"
+              - "443:443"
+            volumes:
+              - ./nginx/conf:/etc/nginx/conf.d
+              - ./nginx/ssl:/etc/nginx/ssl
+              - ./nginx/logs:/var/log/nginx
+            depends_on:
+              - backend
+              - frontend
+            networks:
+              - app-network
+            restart: always
+
+          backend:
+            image: ubdetected/footbot-backend:latest
+            expose:
+              - "5001"
+            environment:
+              - FLASK_ENV=production
+              - FLASK_DEBUG=0
+              - DATABASE_URL=postgresql://postgres:footbot777Azat@db/mydb
+            depends_on:
+              db:
+                condition: service_healthy
+            networks:
+              - app-network
+            restart: unless-stopped
+
+          frontend:
+            image: ubdetected/footbot-frontend:latest
+            expose:
+              - "5173"
+            depends_on:
+              - backend
+            environment:
+              - VITE_API_URL=https://www.findyoursport.ru/api
+            networks:
+              - app-network
+            restart: unless-stopped
+
+        networks:
+          app-network:
+            driver: bridge
+
+        volumes:
+          postgres_data:
+        EOF
+
+    - name: Generate Nginx Config
+      run: |
+        mkdir -p nginx/conf
+        cat > nginx/conf/default.conf << 'EOF'
+        server {
+            listen 80;
+            server_name www.findyoursport.ru findyoursport.ru;
+            
+            location / {
+                return 301 https://$host$request_uri;
+            }
+        }
+
+        server {
+            listen 443 ssl;
+            server_name www.findyoursport.ru findyoursport.ru;
+            
+            ssl_certificate /etc/nginx/ssl/fullchain.pem;
+            ssl_certificate_key /etc/nginx/ssl/privkey.pem;
+            
+            ssl_protocols TLSv1.2 TLSv1.3;
+            ssl_prefer_server_ciphers on;
+            ssl_ciphers "EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH";
+            ssl_session_cache shared:SSL:10m;
+            ssl_session_timeout 1h;
+            
+            location / {
+                proxy_pass http://frontend:5173;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection 'upgrade';
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_cache_bypass $http_upgrade;
+            }
+            
+            location /api/ {
+                proxy_pass http://backend:5001/api/;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection 'upgrade';
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
+        }
+        EOF
+
+    - name: Copy Docker Compose and Nginx configs to server
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: ${{ secrets.USERNAME }}
+        password: ${{ secrets.SERVER_PASSWORD }}
+        source: "docker-compose.yml,nginx/conf/default.conf"
+        target: "/home/footbot"
+        strip_components: 0
+
     - name: Deploy to server
       uses: appleboy/ssh-action@master
       with:
@@ -43,15 +179,55 @@ jobs:
         username: ${{ secrets.USERNAME }}
         password: ${{ secrets.SERVER_PASSWORD }}
         script: |
-          mkdir -p /home/footbot
-          cd /home/footbot
-
-          echo "${{ secrets.DOCKER_COMPOSE }}" > docker-compose.yml
+          echo "Проверка наличия Docker..."
+          if ! command -v docker &> /dev/null; then
+            echo "Docker не установлен. Устанавливаем..."
+            sudo apt-get update
+            sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+            sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+            sudo apt-get update
+            sudo apt-get install -y docker-ce
+          fi
           
+          echo "Проверка наличия Docker Compose..."
+          if ! command -v docker-compose &> /dev/null; then
+            echo "Docker Compose не установлен. Устанавливаем..."
+            sudo apt-get update
+            sudo apt-get install -y docker-compose
+          fi
+          
+          mkdir -p /home/footbot/nginx/conf /home/footbot/nginx/ssl /home/footbot/nginx/logs
+          cd /home/footbot
+          
+          if [ ! -f docker-compose.yml ]; then
+            echo "ОШИБКА: docker-compose.yml не найден!"
+            exit 1
+          fi
+          
+          echo "Содержимое docker-compose.yml:"
+          cat docker-compose.yml
+          
+          if [ ! -f nginx/ssl/fullchain.pem ]; then
+            echo "Копирование SSL сертификатов..."
+            sudo cp /etc/letsencrypt/live/findyoursport.ru/fullchain.pem nginx/ssl/ || echo "Сертификаты не найдены"
+            sudo cp /etc/letsencrypt/live/findyoursport.ru/privkey.pem nginx/ssl/ || echo "Сертификаты не найдены"
+            sudo chmod -R 755 nginx/ssl
+          fi
+          
+          echo "Загрузка Docker образов..."
           docker pull ubdetected/footbot-backend:latest
           docker pull ubdetected/footbot-frontend:latest
-
+          
+          echo "Перезапуск контейнеров..."
           docker-compose down
           docker-compose up -d
-
+          
+          echo "Статус контейнеров:"
+          docker-compose ps
+          
+          echo "Логи контейнеров:"
+          docker-compose logs --tail=10
+          
+          echo "Перезапуск Nginx..."
           sudo systemctl restart nginx || true
