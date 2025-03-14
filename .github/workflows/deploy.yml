@@ -1,0 +1,81 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [ Lesha ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build and push Backend Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        file: ./Dockerfile.backend
+        push: true
+        tags: ubdetected/footbot-backend:latest
+
+    - name: Build and push Frontend Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        file: ./Dockerfile.frontend
+        push: true
+        tags: ubdetected/footbot-frontend:latest
+
+    - name: Deploy to server
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: ${{ secrets.USERNAME }}
+        password: ${{ secrets.SERVER_PASSWORD }}
+        script: |
+          mkdir -p /home/footbot
+          cd /home/footbot
+          
+          # Создаем папки для Nginx конфигурации, SSL и логов
+          mkdir -p nginx/conf nginx/ssl nginx/logs
+          
+          # Копируем SSL сертификаты в папку Nginx, если их еще нет
+          if [ ! -f nginx/ssl/fullchain.pem ]; then
+            # Предполагается, что сертификаты уже есть на сервере
+            cp /etc/letsencrypt/live/findyoursport.ru/fullchain.pem nginx/ssl/
+            cp /etc/letsencrypt/live/findyoursport.ru/privkey.pem nginx/ssl/
+            chmod -R 755 nginx/ssl
+          fi
+          
+          # Скачиваем последние версии образов
+          docker pull ubdetected/footbot-backend:latest
+          docker pull ubdetected/footbot-frontend:latest
+          
+          # Загружаем или обновляем docker-compose.yml и конфигурацию Nginx
+          # Примечание: замените 'yourusername' на ваше имя пользователя GitHub
+          cp docker-compose.yml docker-compose.yml.bak || true
+          cp nginx/conf/default.conf nginx/conf/default.conf.bak || true
+          
+          # Копирование файлов из репозитория
+          # Предполагается, что файлы уже скачаны во время checkout
+          
+          # Устанавливаем docker-compose, если его нет
+          sudo apt update && sudo apt install -y docker-compose
+          
+          # Запускаем контейнеры
+          docker-compose down
+          docker-compose up -d
+          
+          # Настраиваем файрволл, если нужно
+          sudo ufw allow 80
+          sudo ufw allow 443

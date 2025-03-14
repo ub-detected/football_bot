@@ -1,0 +1,11 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY TG_miniApp_front/package.json TG_miniApp_front/package-lock.json ./
+RUN npm install
+
+COPY TG_miniApp_front/ .
+
+# Запуск в режиме разработки
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"] 
