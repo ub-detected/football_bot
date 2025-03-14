@@ -45,6 +45,7 @@ const GameRoom = () => {
             }
           }
         } catch (historyError) {
+          
         }
       }
       
@@ -79,7 +80,6 @@ const GameRoom = () => {
       isFirstRender.current = false;
     }
     
-
     const intervalId = setInterval(() => {
       if (!isScrolling.current) {
         fetchData();
@@ -661,7 +661,7 @@ const GameRoom = () => {
                 </div>
               )}
             </div>
-
+            
             <div className="flex justify-center items-center gap-4 my-6">
               <div className="text-center">
                 <div className="text-blue-800 font-bold text-2xl">Команда A</div>
@@ -707,3 +707,130 @@ const GameRoom = () => {
                   ))}
                 </ul>
               </div>
+              
+              <div className={`rounded-xl p-4 ${
+                gameRoom.scoreA !== null && gameRoom.scoreB !== null
+                  ? gameRoom.scoreB > gameRoom.scoreA 
+                    ? 'bg-green-50' 
+                    : gameRoom.scoreB < gameRoom.scoreA 
+                      ? 'bg-red-50' 
+                      : 'bg-yellow-50'
+                  : 'bg-gray-50'
+              }`}>
+                <h3 className="font-semibold mb-2">Команда B</h3>
+                <ul className="space-y-2">
+                  {gameRoom.teamB.map(player => (
+                    <li key={player.id} className="flex items-center gap-2">
+                      <img
+                        src={player.photoUrl}
+                        alt={player.username}
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                      <span className="truncate flex-1">{player.username}</span>
+                      {gameRoom.scoreB !== null && gameRoom.scoreA !== null && gameRoom.scoreB > gameRoom.scoreA && (
+                        <span className="ml-auto text-green-600 font-semibold whitespace-nowrap">Победа</span>
+                      )}
+                      {gameRoom.scoreB !== null && gameRoom.scoreA !== null && gameRoom.scoreB < gameRoom.scoreA && (
+                        <span className="ml-auto text-red-600 whitespace-nowrap">Проигрыш</span>
+                      )}
+                      {gameRoom.scoreB !== null && gameRoom.scoreA !== null && gameRoom.scoreB === gameRoom.scoreA && (
+                        <span className="ml-auto text-yellow-600 whitespace-nowrap">Ничья</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => navigate('/games')}
+              className="w-full bg-blue-600 text-white rounded-lg py-3 font-medium"
+            >
+              Вернуться к списку игр
+            </button>
+          </div>
+        )}
+
+        {/* Список всех игроков */}
+        <div className="bg-white rounded-xl shadow-md p-4">
+          <h2 className="text-lg font-semibold mb-4">Все игроки</h2>
+          <ul className="space-y-2">
+            {gameRoom.players.map(player => (
+              <li key={player.id} className="flex items-center gap-2">
+                <img
+                  src={player.photoUrl}
+                  alt={player.username}
+                  className="w-8 h-8 rounded-full object-cover"
+                />
+                <div>
+                  <p className="font-medium">{player.username}</p>
+                  <p className="text-xs text-gray-600">
+                    {player.id === gameRoom.creator.id && 'Создатель'}
+                    {player.id === gameRoom.captainA?.id && ' • Капитан команды A'}
+                    {player.id === gameRoom.captainB?.id && ' • Капитан команды B'}
+                  </p>
+                </div>
+                {player.id !== currentUser?.id && (
+                  <button
+                    onClick={() => openReportModal(player.id)}
+                    className="ml-auto text-red-500"
+                    title="Пожаловаться"
+                  >
+                    <Flag size={16} />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* Модальное окно для жалобы */}
+      {reportModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertTriangle className="text-red-500" />
+              <h2 className="text-xl font-bold">Пожаловаться на игрока</h2>
+            </div>
+            
+            <form onSubmit={handleReportPlayer}>
+              <div className="mb-4">
+                <label className="block text-gray-700 mb-2">Причина жалобы</label>
+                <textarea
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 h-32"
+                  placeholder="Опишите причину жалобы..."
+                  required
+                />
+              </div>
+              
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReportModalOpen(false);
+                    setReportedUserId(null);
+                    setReportReason('');
+                  }}
+                  className="flex-1 bg-gray-200 text-gray-800 rounded-lg py-3 font-medium"
+                >
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-red-600 text-white rounded-lg py-3 font-medium"
+                >
+                  Отправить
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default GameRoom; 
