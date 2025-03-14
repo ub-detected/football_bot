@@ -24,7 +24,7 @@ jobs:
       uses: docker/build-push-action@v4
       with:
         context: .
-        file: ./dockerfile
+        file: ./docker-compose.yml
         push: true
         tags: ubdetected/footbot:latest
 
