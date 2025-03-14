@@ -41,7 +41,7 @@ services:
     environment:
       - FLASK_ENV=production
       - FLASK_DEBUG=0
-      - DATABASE_URL=postgresql://postgres:postgres@db/tg_miniapp
+      - DATABASE_URL=postgresql://postgres:footbot777Azat@db/mydb
     depends_on:
       - db
     networks:

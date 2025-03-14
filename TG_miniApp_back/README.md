@@ -122,7 +122,7 @@ CREATE DATABASE tg_miniapp;
 Создайте файл `.env` в корне проекта со следующим содержимым:
 
 ```
-DATABASE_URL=postgresql://postgres:postgres@localhost/tg_miniapp
+DATABASE_URL=postgresql://postgres:footbot777Azat@localhost/mydb
 FLASK_APP=main.py
 FLASK_ENV=development
 ```
