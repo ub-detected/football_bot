@@ -23,5 +23,28 @@ export interface GameHistory {
   gameStartTime?: string;
   gameEndTime?: string;
   gameDuration?: string;
+  gameRoom: GameRoom;
 }
 
+export interface GameRoom {
+  id: number;
+  name: string;
+  creator: User;
+  players: User[];
+  maxPlayers: number;
+  location: string;
+  timeRange: string;
+  status: 'waiting' | 'team_selection' | 'in_progress' | 'score_submission' | 'completed';
+  teamA: User[];
+  teamB: User[];
+  captainA: User | null;
+  captainB: User | null;
+  scoreA: number | null;
+  scoreB: number | null;
+  captainASubmitted: boolean;
+  captainBSubmitted: boolean;
+  scoreMismatch: boolean;
+  scoreSubmissionAttempts: number;
+  startTime?: string;
+  endTime?: string;
+}
