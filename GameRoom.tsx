@@ -331,3 +331,313 @@ const GameRoom = () => {
             )}
           </div>
         )}
+
+        {/* Статус: выбор команд */}
+        {gameRoom.status === 'team_selection' && (
+          <div className="bg-white rounded-xl shadow-md p-4 mb-4">
+            <h2 className="text-lg font-semibold mb-4">Статус: Распределение команд</h2>
+            
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-blue-50 rounded-xl p-4">
+                <h3 className="font-semibold text-blue-800 mb-2 flex items-center gap-1">
+                  <span>Команда A</span>
+                  {gameRoom.captainA && (
+                    <div className="ml-auto flex items-center gap-1 text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded-full">
+                      <Crown size={12} />
+                      <span>Капитан</span>
+                    </div>
+                  )}
+                </h3>
+                <ul className="space-y-2">
+                  {gameRoom.teamA.map(player => (
+                    <li key={player.id} className="flex items-center gap-2">
+                      <img
+                        src={player.photoUrl}
+                        alt={player.username}
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                      <span className={player.id === gameRoom.captainA?.id ? 'font-semibold' : ''}>
+                        {player.username}
+                      </span>
+                      {player.id !== currentUser?.id && (
+                        <button
+                          onClick={() => openReportModal(player.id)}
+                          className="ml-auto text-red-500"
+                          title="Пожаловаться"
+                        >
+                          <Flag size={14} />
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              
+              <div className="bg-red-50 rounded-xl p-4">
+                <h3 className="font-semibold text-red-800 mb-2 flex items-center gap-1">
+                  <span>Команда B</span>
+                  {gameRoom.captainB && (
+                    <div className="ml-auto flex items-center gap-1 text-xs bg-red-200 text-red-800 px-2 py-1 rounded-full">
+                      <Crown size={12} />
+                      <span>Капитан</span>
+                    </div>
+                  )}
+                </h3>
+                <ul className="space-y-2">
+                  {gameRoom.teamB.map(player => (
+                    <li key={player.id} className="flex items-center gap-2">
+                      <img
+                        src={player.photoUrl}
+                        alt={player.username}
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                      <span className={player.id === gameRoom.captainB?.id ? 'font-semibold' : ''}>
+                        {player.username}
+                      </span>
+                      {player.id !== currentUser?.id && (
+                        <button
+                          onClick={() => openReportModal(player.id)}
+                          className="ml-auto text-red-500"
+                          title="Пожаловаться"
+                        >
+                          <Flag size={14} />
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            
+            {isCreator && (
+              <button
+                onClick={handleStartGame}
+                className="w-full bg-green-600 text-white rounded-lg py-3 font-medium"
+              >
+                Начать игру
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Статус: игра в процессе */}
+        {gameRoom.status === 'in_progress' && (
+          <div className="bg-white rounded-xl shadow-md p-4 mb-4">
+            <h2 className="text-lg font-semibold mb-4">Статус: Игра идет</h2>
+            
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-blue-50 rounded-xl p-4">
+                <h3 className="font-semibold text-blue-800 mb-2">Команда A</h3>
+                <ul className="space-y-2">
+                  {gameRoom.teamA.map(player => (
+                    <li key={player.id} className="flex items-center gap-2">
+                      <img
+                        src={player.photoUrl}
+                        alt={player.username}
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                      <span className={player.id === gameRoom.captainA?.id ? 'font-semibold' : ''}>
+                        {player.username}
+                        {player.id === gameRoom.captainA?.id && ' (К)'}
+                      </span>
+                      {player.id !== currentUser?.id && (
+                        <button
+                          onClick={() => openReportModal(player.id)}
+                          className="ml-auto text-red-500"
+                          title="Пожаловаться"
+                        >
+                          <Flag size={14} />
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              
+              <div className="bg-red-50 rounded-xl p-4">
+                <h3 className="font-semibold text-red-800 mb-2">Команда B</h3>
+                <ul className="space-y-2">
+                  {gameRoom.teamB.map(player => (
+                    <li key={player.id} className="flex items-center gap-2">
+                      <img
+                        src={player.photoUrl}
+                        alt={player.username}
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                      <span className={player.id === gameRoom.captainB?.id ? 'font-semibold' : ''}>
+                        {player.username}
+                        {player.id === gameRoom.captainB?.id && ' (К)'}
+                      </span>
+                      {player.id !== currentUser?.id && (
+                        <button
+                          onClick={() => openReportModal(player.id)}
+                          className="ml-auto text-red-500"
+                          title="Пожаловаться"
+                        >
+                          <Flag size={14} />
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            
+            {isCaptain && (
+              <div className="mt-4">
+                <button
+                  onClick={handleEndGame}
+                  className={`w-full py-3 rounded-lg font-medium ${
+                    (isCaptainA && gameRoom.captainASubmitted) || (isCaptainB && gameRoom.captainBSubmitted)
+                      ? 'bg-gray-300 text-gray-700'
+                      : 'bg-red-600 text-white'
+                  }`}
+                  disabled={(isCaptainA && gameRoom.captainASubmitted) || (isCaptainB && gameRoom.captainBSubmitted)}
+                >
+                  {(isCaptainA && gameRoom.captainASubmitted) || (isCaptainB && gameRoom.captainBSubmitted)
+                    ? 'Ожидание другого капитана'
+                    : 'Завершить игру'}
+                </button>
+                {((isCaptainA && gameRoom.captainASubmitted) || (isCaptainB && gameRoom.captainBSubmitted)) && (
+                  <p className="text-center text-gray-600 mt-2">
+                    Ожидание подтверждения от другого капитана
+                  </p>
+                )}
+              </div>
+            )}
+            
+            {!isCaptain && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mt-4">
+                <p className="text-center text-yellow-800">
+                  Игра в процессе. Ожидайте завершения от капитанов команд.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Статус: ввод счета */}
+        {gameRoom.status === 'score_submission' && (
+          <div className="bg-white rounded-xl shadow-md p-4 mb-4">
+            <h2 className="text-lg font-semibold mb-4">Статус: Ввод счета</h2>
+            
+            {gameRoom && gameRoom.status === 'score_submission' && gameRoom.scoreMismatch && (
+              <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-xl mb-4">
+                <p className="font-bold">Внимание! Несовпадение счетов</p>
+                <p>Капитаны ввели разные счеты. Попытка {gameRoom.scoreSubmissionAttempts} из 2.</p>
+                <p className="mt-2">При повторном несовпадении обеим командам будет засчитано поражение!</p>
+              </div>
+            )}
+            
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-blue-50 rounded-xl p-4">
+                <h3 className="font-semibold text-blue-800 mb-2">Команда A</h3>
+                <ul className="space-y-2">
+                  {gameRoom.teamA.map(player => (
+                    <li key={player.id} className="flex items-center gap-2">
+                      <img
+                        src={player.photoUrl}
+                        alt={player.username}
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                      <span>{player.username}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              
+              <div className="bg-red-50 rounded-xl p-4">
+                <h3 className="font-semibold text-red-800 mb-2">Команда B</h3>
+                <ul className="space-y-2">
+                  {gameRoom.teamB.map(player => (
+                    <li key={player.id} className="flex items-center gap-2">
+                      <img
+                        src={player.photoUrl}
+                        alt={player.username}
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                      <span>{player.username}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            
+            {isCaptain && (
+              <div className="mt-4">
+                {((isCaptainA && !gameRoom.captainASubmitted) || (isCaptainB && !gameRoom.captainBSubmitted)) ? (
+                  <form onSubmit={handleSubmitScore}>
+                    <div className="mb-4">
+                      <label className="block text-gray-700 mb-2">
+                        Введите счет матча
+                      </label>
+                      
+                      <div className="flex items-center space-x-4">
+                        <div className="flex-1">
+                          <label className="block text-sm text-gray-600 mb-1">
+                            Команда A забила
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="99"
+                            value={scoreA === 0 ? "" : scoreA}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setScoreA(value === "" ? 0 : parseInt(value));
+                            }}
+                            placeholder="0"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-center"
+                            required
+                          />
+                        </div>
+                        
+                        <div className="text-xl font-bold">:</div>
+                        
+                        <div className="flex-1">
+                          <label className="block text-sm text-gray-600 mb-1">
+                            Команда B забила
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="99"
+                            value={scoreB === 0 ? "" : scoreB}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setScoreB(value === "" ? 0 : parseInt(value));
+                            }}
+                            placeholder="0"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-center"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <button
+                      type="submit"
+                      className="w-full bg-blue-600 text-white rounded-lg py-3 font-medium"
+                    >
+                      Отправить счет
+                    </button>
+                  </form>
+                ) : (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                    <p className="text-center text-yellow-800">
+                      Ожидание ввода счета от другого капитана
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {!isCaptain && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mt-4">
+                <p className="text-center text-yellow-800">
+                  Капитаны вводят счет игры. Пожалуйста, подождите.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
