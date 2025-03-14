@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback} from 'react';
-import { userApi } from '../api';
+import { userApi, gameRoomApi } from '../api';
 import { Users, MapPin, Clock, Crown, Plus, X, Castle as Whistle, Search, Filter, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
-import { User } from '../types';
+import { User, GameRoom} from '../types';
 import { API_URL } from '../api';
 import { useNavigate } from 'react-router-dom';
 import LocationAutocomplete from '../adds/LocationAutocomplete';
 
 const Games = () => {
+    const [gameRooms, setGameRooms] = useState<GameRoom[]>([]);
     const isFirstRender = useRef(true);
     const isScrolling = useRef(false);
     const [isJoiningGame, setIsJoiningGame] = useState(false);
@@ -68,7 +69,6 @@ const Games = () => {
           setSelectedTimeRanges(prev => [...prev, timeRange]);
         }
       };
-    
 
       const fetchData = useCallback(async (force = false) => {
         if (isScrolling.current && !force) return;
@@ -84,10 +84,11 @@ const Games = () => {
           if (selectedTimeRanges.length > 0) {
             queryParams.timeRange = selectedTimeRanges.join(',');
           }
-          const [userData] = await Promise.all([
-            //ДОБАВИТЬ ВЗАИМОДЕЙСТВИЕ С ГЕЙМРУМ
+          const [rooms, userData] = await Promise.all([
+            gameRoomApi.getGameRooms(queryParams),
             userApi.getCurrentUser()
           ]);
+          setGameRooms(rooms);
           setCurrentUser(userData);
           setError('');
           try {
@@ -137,7 +138,23 @@ const Games = () => {
         }
       }, [fetchData, searchQuery, locationFilter, selectedTimeRanges]);
     
-      // ДОБАВИТЬ ПРОВЕРКУ НАЛИЧИЯ ПОЛЬЗОВАТЕЛЯ В ИГРЕ
+      useEffect(() => {
+        if (currentUser && gameRooms.length > 0) {
+          // Проверяем, есть ли комната, в которой пользователь является игроком
+          // и которая УЖЕ НАЧАТА (не в статусе waiting)
+          const roomWithUser = gameRooms.find(
+            room => 
+              room.players.some(player => player.id === currentUser.id) && 
+              room.status !== 'waiting'
+          );
+    
+          // Редиректим только если пользователь находится в запущенной игре
+          if (roomWithUser) {
+            navigate(`/game-room/${roomWithUser.id}`);
+          }
+        }
+      }, [currentUser, gameRooms, navigate]);
+
       const handleRefresh = () => {
         fetchData(true);
       };
@@ -146,7 +163,7 @@ const Games = () => {
         e.preventDefault();
         try {
           setLoading(true);
-          // СОЗДАТЬ НОВУЮ КОМНАТУ
+          const createdRoom = await gameRoomApi.createGameRoom(newGame);
           setNewGame({
             name: '',
             location: '',
@@ -166,8 +183,11 @@ const Games = () => {
         try {
           setIsJoiningGame(true);
           setLoading(true);
-          //ДОБАВИТЬ ОБНАВЛЕНИЕ СПИСКА КОМНАТ
+          const result = await gameRoomApi.joinGameRoom(roomId);
           await fetchData(true);
+          if (result.roomIsFull) {
+            navigate(`/game-rooms/${roomId}`);
+          }
         } catch (err: any) {
           if (err.response && err.response.data && err.response.data.activeRooms && err.response.data.activeRooms.length > 0) {
             const activeRoom = err.response.data.activeRooms[0];
@@ -184,6 +204,7 @@ const Games = () => {
       const handleLeaveGame = async (roomId: number) => {
         try {
           setLoading(true);
+          await gameRoomApi.leaveGameRoom(roomId);
           await fetchData(true);
         } catch (err) {
           setError('Не удалось покинуть игровую комнату. Пожалуйста, попробуйте позже.');
@@ -204,6 +225,9 @@ const Games = () => {
         setLocationFilter('');
         setSelectedTimeRanges([]);
       };
+      const isUserInAnyRoom = currentUser ? gameRooms.some(room => 
+        room.players.some(player => player.id === currentUser.id)
+      ) : false;
 
       return (
         <div className="min-h-screen bg-gray-50 pb-20">
@@ -320,12 +344,67 @@ const Games = () => {
               <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl mb-4">
                 {error}
               </div>
-            ) : 0 ? (
+            ) : gameRooms.length === 0 ? (
               <div className="bg-white rounded-xl p-8 text-center">
                 <p className="text-gray-600">Нет доступных игр. Создайте новую!</p>
               </div>
             ) : (
-              <div className="space-y-4">
+                <div className="space-y-4">
+                {gameRooms.map(room => (
+                  <div key={room.id} className="bg-white rounded-xl shadow-md p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <h2 className="text-lg font-semibold">{room.name}</h2>
+                      <div className="flex items-center gap-1 text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                        <Users size={14} />
+                        <span>{room.players.length}/{room.maxPlayers}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 text-gray-600 text-sm mb-2">
+                      <MapPin size={14} />
+                      <span>{room.location}</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 text-gray-600 text-sm mb-3">
+                      <Clock size={14} />
+                      <span>{room.timeRange}</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 mb-4">
+                      <img
+                        src={room.creator.photoUrl}
+                        alt={room.creator.username}
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                      <div className="flex items-center gap-1 text-sm">
+                        <Crown size={14} className="text-yellow-500" />
+                        <span>{room.creator.username}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          if (currentUser && room.players.some(player => player.id === currentUser.id)) {
+                            handleLeaveGame(room.id);
+                          } else {
+                            handleJoinGame(room.id);
+                          }
+                        }}
+                        className={`flex-1 py-2 rounded-lg font-medium ${
+                          currentUser && room.players.some(player => player.id === currentUser.id)
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}
+                        disabled={isUserInAnyRoom && !(currentUser && room.players.some(player => player.id === currentUser.id))}
+                      >
+                        {currentUser && room.players.some(player => player.id === currentUser.id)
+                          ? 'Покинуть игру'
+                          : 'Присоединиться'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
