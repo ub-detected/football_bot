@@ -5,15 +5,14 @@ def initialize_database():
     with app.app_context():
         print("Начинаю инициализацию базы данных...")
         
-        # Создаем все таблицы
+
         db.create_all()
         print("Таблицы созданы.")
-        
-        # Проверяем, есть ли уже пользователи в базе
+      
         user_count = User.query.count()
         print(f"Текущее количество пользователей: {user_count}")
         
-        # Создаем тестовых пользователей, если их нет
+     
         if user_count == 0:
             print("Добавляю тестовых пользователей...")
             users = [
@@ -27,7 +26,7 @@ def initialize_database():
             db.session.commit()
             print(f"Добавлено {len(users)} тестовых пользователей.")
         
-        # Проверяем, что таблицы созданы и доступны
+      
         tables = ["users", "game_rooms", "game_history", "game_room_players", "team_a_players", "team_b_players", "complaints"]
         for table in tables:
             try:
