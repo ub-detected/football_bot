@@ -66,7 +66,7 @@ jobs:
           cp nginx/conf/default.conf nginx/conf/default.conf.bak 2>/dev/null || true
           
           # Явное создание docker-compose.yml
-          cat > docker-compose.yml << 'EOF'
+          cat > docker-compose.yml << 'EOFdocker'
 version: '3'
 
 services:
@@ -131,10 +131,10 @@ networks:
 
 volumes:
   postgres_data:
-EOF
+EOFdocker
 
           # Явное создание конфига Nginx
-          cat > nginx/conf/default.conf << 'EOF'
+          cat > nginx/conf/default.conf << 'EOFnginx'
 server {
     listen 80;
     server_name www.findyoursport.ru findyoursport.ru;
@@ -185,7 +185,7 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
-EOF
+EOFnginx
           
           # Устанавливаем docker-compose, если его нет
           sudo apt update && sudo apt install -y docker-compose
