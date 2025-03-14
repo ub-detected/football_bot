@@ -33,7 +33,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: Dockerfile.backend
+      dockerfile: footbot-backend
     expose:
       - "5001"
     volumes:
@@ -50,7 +50,7 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile.frontend
+      dockerfile: footbot-frontend
     expose:
       - "5173"
     volumes:
