@@ -106,3 +106,117 @@ const GameRoom = () => {
       setIsPerformingAction(false);
     }
   };
+
+  const handleStartGame = async () => {
+    try {
+      setIsPerformingAction(true);
+      setLoading(true);
+      const updatedRoom = await gameRoomApi.startGame(parseInt(roomId || '0'));
+      setGameRoom(updatedRoom);
+    } catch (err) {
+      setError('Не удалось начать игру. Пожалуйста, попробуйте позже.');
+    } finally {
+      setLoading(false);
+      setIsPerformingAction(false);
+    }
+  };
+
+  const handleEndGame = async () => {
+    try {
+      setIsPerformingAction(true);
+      setLoading(true);
+      const updatedRoom = await gameRoomApi.endGame(parseInt(roomId || '0'));
+      setGameRoom(updatedRoom);
+    } catch (err) {
+      setError('Не удалось завершить игру. Пожалуйста, попробуйте позже.');
+    } finally {
+      setLoading(false);
+      setIsPerformingAction(false);
+    }
+  };
+
+  const handleSubmitScore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      setIsPerformingAction(true);
+      setLoading(true);
+      
+      const formattedScore = `${scoreA}:${scoreB}`;
+      
+      const result = await gameRoomApi.submitScore(parseInt(roomId || '0'), formattedScore);
+      
+      if (result.room) {
+        setGameRoom(result.room);
+      }
+      
+      setScoreA(0);
+      setScoreB(0);
+      
+      const fetchRoomData = async () => {
+        try {
+          const updatedRoom = await gameRoomApi.getGameRoom(parseInt(roomId || '0'));
+          setGameRoom(updatedRoom);
+          setLoading(false);
+        } catch (err) {
+          console.error('Error fetching updated room data:', err);
+          setLoading(false);
+        }
+      };
+      
+      
+      setTimeout(fetchRoomData, 2000);
+    } catch (err: any) {
+      console.error('Error submitting score:', err);
+      if (err.response && err.response.data && err.response.data.message) {
+        setError(`Ошибка: ${err.response.data.message}`);
+      } else {
+        setError('Не удалось отправить счет. Пожалуйста, попробуйте позже.');
+      }
+      setLoading(false);
+      setIsPerformingAction(false);
+    }
+  };
+
+  const handleReportPlayer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reportedUserId || !reportReason) return;
+    
+    try {
+      setIsPerformingAction(true);
+      setLoading(true);
+      await gameRoomApi.reportPlayer(parseInt(roomId || '0'), reportedUserId, reportReason);
+      setReportModalOpen(false);
+      setReportedUserId(null);
+      setReportReason('');
+      alert('Жалоба отправлена успешно!');
+    } catch (err) {
+      setError('Не удалось отправить жалобу. Пожалуйста, попробуйте позже.');
+    } finally {
+      setLoading(false);
+      setIsPerformingAction(false);
+    }
+  };
+
+  const openReportModal = (userId: number) => {
+    setReportedUserId(userId);
+    setReportModalOpen(true);
+  };
+
+  const isCreator = currentUser?.id === gameRoom?.creator.id;
+  const isCaptainA = currentUser?.id === gameRoom?.captainA?.id;
+  const isCaptainB = currentUser?.id === gameRoom?.captainB?.id;
+  const isCaptain = isCaptainA || isCaptainB;
+
+  const handleLeaveRoom = async () => {
+    try {
+      setIsPerformingAction(true);
+      setLoading(true);
+      await gameRoomApi.leaveGameRoom(parseInt(roomId || '0'));
+      navigate('/games');
+    } catch (err) {
+      setError('Не удалось покинуть комнату. Пожалуйста, попробуйте позже.');
+      setLoading(false);
+      setIsPerformingAction(false);
+    }
+  };
