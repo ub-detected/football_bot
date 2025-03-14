@@ -71,7 +71,7 @@ class GameHistory(db.Model):
     game_end_time = db.Column(db.DateTime, nullable=True)
 ```
 
-## Установка и настройка
+## Установка и настройкаkm
 
 ### Требования
 - Python 3.8+
