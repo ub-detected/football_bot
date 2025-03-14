@@ -61,155 +61,17 @@ jobs:
           docker pull ubdetected/footbot-backend:latest
           docker pull ubdetected/footbot-frontend:latest
           
-          # Создаем резервные копии существующих файлов конфигурации если они есть
-          cp docker-compose.yml docker-compose.yml.bak 2>/dev/null || true
-          cp nginx/conf/default.conf nginx/conf/default.conf.bak 2>/dev/null || true
+          # Загружаем или обновляем docker-compose.yml и конфигурацию Nginx
+          # Примечание: замените 'yourusername' на ваше имя пользователя GitHub
+          cp docker-compose.yml docker-compose.yml.bak || true
+          cp nginx/conf/default.conf nginx/conf/default.conf.bak || true
           
-          # Явное создание docker-compose.yml
-          cat > docker-compose.yml << 'EOFdocker'
-version: '3'
-
-services:
-  db:
-    image: postgres:13-alpine
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_DB=tg_miniapp
-    ports:
-      - "5432:5432"
-    networks:
-      - app-network
-
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/conf:/etc/nginx/conf.d
-      - ./nginx/ssl:/etc/nginx/ssl
-      - ./nginx/logs:/var/log/nginx
-    depends_on:
-      - backend
-      - frontend
-    networks:
-      - app-network
-    restart: always
-
-  backend:
-    image: ubdetected/footbot-backend:latest
-    expose:
-      - "5001"
-    environment:
-      - FLASK_ENV=production
-      - FLASK_DEBUG=0
-      - DATABASE_URL=postgresql://postgres:postgres@db/tg_miniapp
-    depends_on:
-      - db
-    networks:
-      - app-network
-    restart: always
-
-  frontend:
-    image: ubdetected/footbot-frontend:latest
-    expose:
-      - "5173"
-    depends_on:
-      - backend
-    environment:
-      - VITE_API_URL=https://www.findyoursport.ru/api
-    networks:
-      - app-network
-    restart: always
-
-networks:
-  app-network:
-    driver: bridge
-
-volumes:
-  postgres_data:
-EOFdocker
-
-          # Явное создание конфига Nginx
-          cat > nginx/conf/default.conf << 'EOFnginx'
-server {
-    listen 80;
-    server_name www.findyoursport.ru findyoursport.ru;
-    
-    # Перенаправление HTTP на HTTPS
-    location / {
-        return 301 https://$host$request_uri;
-    }
-}
-
-server {
-    listen 443 ssl;
-    server_name www.findyoursport.ru findyoursport.ru;
-    
-    # SSL сертификаты
-    ssl_certificate /etc/nginx/ssl/fullchain.pem;
-    ssl_certificate_key /etc/nginx/ssl/privkey.pem;
-    
-    # SSL настройки
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_prefer_server_ciphers on;
-    ssl_ciphers "EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH";
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 1h;
-    
-    # Перенаправление на фронтенд
-    location / {
-        proxy_pass http://frontend:5173;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
-    
-    # Перенаправление API запросов на бэкенд
-    location /api/ {
-        proxy_pass http://backend:5001/api/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-EOFnginx
+          # Копирование файлов из репозитория
+          # Предполагается, что файлы уже скачаны во время checkout
           
           # Устанавливаем docker-compose, если его нет
           sudo apt update && sudo apt install -y docker-compose
           
-          # Останавливаем текущие контейнеры и запускаем обновленные
-          echo "Останавливаем контейнеры..."
+          # Запускаем контейнеры
           docker-compose down
-          
-          echo "Запускаем контейнеры..."
           docker-compose up -d
-          
-          # Настраиваем файрволл, если нужно
-          sudo ufw allow 80
-          sudo ufw allow 443
-          
-          # Вывод информации для диагностики
-          echo "Статус контейнеров:"
-          docker-compose ps
-          
-          echo "Логи Nginx:"
-          docker-compose logs --tail=20 nginx
-          
-          echo "Логи Backend:"
-          docker-compose logs --tail=20 backend
-          
-          echo "Логи Frontend:"
-          docker-compose logs --tail=20 frontend
