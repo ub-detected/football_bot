@@ -105,6 +105,17 @@ const Leaderboard = () => {
     };
   }, [loading, loadingMore, pagination, fetchLeaderboard]);
 
+  const handleRefresh = () => {
+    fetchLeaderboard(1, true);
+  };
+
+  const handleLoadMore = () => {
+    if (pagination && pagination.page < pagination.total_pages) {
+      fetchLeaderboard(pagination.page + 1);
+    }
+  };
+
+  
 
   return (
     <div className="p-4 pb-20">
