@@ -4,7 +4,10 @@ import { User, GameHistory } from '../types';
 import { Trophy, Medal, RefreshCw, ChevronDown, ArrowLeft, Clock, UserIcon } from 'lucide-react';
 
 const Leaderboard = () => {
+  const [playerGameHistory, setPlayerGameHistory] = useState<GameHistory[]>([]);
+  const [loadingProfile, setLoadingProfile] = useState(false);
   const [users, setUsers] = useState([]);
+  const [selectedPlayer, setSelectedPlayer] = useState<User | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [topPlayers, setTopPlayers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,7 +118,30 @@ const Leaderboard = () => {
     }
   };
 
-  
+//ЕСЛИ НЕТ В БАЗЕ ДАННЫХ НИКОГО
+  const viewPlayerProfile = async (player: User) => {
+    try {
+      setLoadingProfile(true);
+      setSelectedPlayer(player);
+      let gameHistory;
+      const isCurrentUser = currentUser?.id === player.id;
+      
+      if (isCurrentUser) {
+        gameHistory = await userApi.getGameHistory();
+      } else {
+        gameHistory = await userApi.getUserGameHistory(player.id);
+      }
+      if (gameHistory.length === 0 && !isCurrentUser) {
+      }
+      setPlayerGameHistory(gameHistory);
+    } catch (error) {
+      console.error('Failed to fetch player profile:', error);
+      setError('Не удалось загрузить профиль игрока.');
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
 
   return (
     <div className="p-4 pb-20">
