@@ -1,24 +1,24 @@
 const GameRoom = () => {
-    const { roomId } = useParams<{ roomId: string }>();
-    const navigate = useNavigate();
-    const [gameRoom, setGameRoom] = useState<GameRoomType | null>(null);
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [scoreA, setScoreA] = useState<number>(0);
-    const [scoreB, setScoreB] = useState<number>(0);
-    const [reportModalOpen, setReportModalOpen] = useState(false);
-    const [reportedUserId, setReportedUserId] = useState<number | null>(null);
-    const [reportReason, setReportReason] = useState('');
-    
-    const isScrolling = useRef(false);
-    const isFirstRender = useRef(true);
+  const { roomId } = useParams<{ roomId: string }>();
+  const navigate = useNavigate();
+  const [gameRoom, setGameRoom] = useState<GameRoomType | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [scoreA, setScoreA] = useState<number>(0);
+  const [scoreB, setScoreB] = useState<number>(0);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportedUserId, setReportedUserId] = useState<number | null>(null);
+  const [reportReason, setReportReason] = useState('');
+  
+  const isScrolling = useRef(false);
+  const isFirstRender = useRef(true);
 
-    const [isPerformingAction, setIsPerformingAction] = useState(false);
+  const [isPerformingAction, setIsPerformingAction] = useState(false);
 
-    const [gameHistory, setGameHistory] = useState<any[]>([]);
+  const [gameHistory, setGameHistory] = useState<any[]>([]);
 
-    const fetchData = useCallback(async (force = false) => {
+  const fetchData = useCallback(async (force = false) => {
     if (isScrolling.current && !force) return;
     
     try {
@@ -27,7 +27,7 @@ const GameRoom = () => {
         userApi.getCurrentUser(),
         gameRoomApi.getGameRoom(parseInt(roomId || '0'))
       ]);
-
+      
       setCurrentUser(userData);
       setGameRoom(roomData);
       
@@ -79,12 +79,12 @@ const GameRoom = () => {
       isFirstRender.current = false;
     }
     
-    
+
     const intervalId = setInterval(() => {
       if (!isScrolling.current) {
         fetchData();
       }
-    }, 10000);
+    }, 10000); 
     
     return () => clearInterval(intervalId);
   }, [fetchData]);
@@ -164,7 +164,7 @@ const GameRoom = () => {
         }
       };
       
-      
+
       setTimeout(fetchRoomData, 2000);
     } catch (err: any) {
       console.error('Error submitting score:', err);
@@ -221,7 +221,6 @@ const GameRoom = () => {
     }
   };
 
-
   if (loading && !gameRoom) {
     return (
       <div className="min-h-screen bg-gray-50 flex justify-center items-center">
@@ -265,6 +264,7 @@ const GameRoom = () => {
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       <div className="bg-blue-600 text-white p-6 relative">
+        {/* Кнопка обновления - скрываем при выполнении действий или загрузке */}
         {!loading && !isPerformingAction && !reportModalOpen && (
           <button 
             onClick={handleRefresh}
@@ -654,10 +654,10 @@ const GameRoom = () => {
                   gameHistory[0].points_earned > 0 
                     ? 'text-white bg-green-600' 
                     : gameHistory[0].points_earned < 0 
-                    ? 'text-white bg-red-600' 
-                    : 'text-gray-800 bg-gray-200'
-              }`}>
-                {gameHistory[0].points_earned > 0 ? '+' : ''}{gameHistory[0].points_earned} ⭐
-              </div>
-            )}
-          </div>
+                      ? 'text-white bg-red-600' 
+                      : 'text-gray-800 bg-gray-200'
+                }`}>
+                  {gameHistory[0].points_earned > 0 ? '+' : ''}{gameHistory[0].points_earned} ⭐
+                </div>
+              )}
+            </div>
