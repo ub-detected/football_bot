@@ -10,7 +10,7 @@ from locations import search_locations, get_all_locations
 from sqlalchemy import or_, text
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "http://localhost:5173"}})  # Разрешаем фронтенд
+CORS(app, resources={r"/api/*": {"origins": "www.findyoursport.ru"}})  # Разрешаем фронтенд
 
 # Конфигурация базы данных
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://postgres:Lesha170306!@localhost:5000/tg_miniapp228')
