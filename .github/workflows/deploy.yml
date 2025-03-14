@@ -75,3 +75,7 @@ jobs:
           # Запускаем контейнеры
           docker-compose down
           docker-compose up -d
+          
+          # Настраиваем файрволл, если нужно
+          sudo ufw allow 80
+          sudo ufw allow 443
