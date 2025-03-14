@@ -2,13 +2,13 @@ version: '3'
 
 services:
   db:
-    image: postgres:13-alpine
+    image: postgres:16
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=footbot777Azat
       - POSTGRES_USER=postgres
-      - POSTGRES_DB=tg_miniapp
+      - POSTGRES_DB=mydb
     ports:
       - "5432:5432"
     networks:
