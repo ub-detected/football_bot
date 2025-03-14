@@ -1,7 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --pitch-green: #2d5a27;
   --pitch-stripe: #234a1f;
+  
   --background-color: #f9fafb;
   --text-color: #1f2937;
   --card-bg: #ffffff;
@@ -12,6 +16,7 @@
   --danger-color: #ef4444;
   --success-color: #10b981;
 }
+
 .dark-theme {
   --background-color: #111827;
   --text-color: #f9fafb;
@@ -32,6 +37,7 @@
   --modal-bg: #111827;
   --modal-header: #1e3a8a;
 }
+
 .dark-theme .bg-white {
   background-color: var(--card-bg);
   color: var(--text-color);
@@ -68,4 +74,316 @@
 
 .dark-theme .bg-yellow-50 {
   background-color: #433519;
+}
+
+.dark-theme .player-card {
+  background-color: var(--card-bg);
+  border: 1px solid transparent; 
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  margin-bottom: 0.5rem;  
+  height: auto;  
+  display: flex;
+  align-items: center;
+}
+
+.player-card {
+  margin-bottom: 0.5rem;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.dark-theme .hover\:bg-gray-100:hover {
+  background-color: var(--card-highlight);
+  transition: all 0.2s ease;
+  box-shadow: 0 0 8px rgba(96, 165, 250, 0.2);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  box-sizing: border-box;
+  margin: 0 0 0.5rem 0; 
+  transform: translateY(0); 
+}
+
+.dark-theme .your-position {
+  background-color: var(--position-bg);
+  border: 1px solid var(--highlight-color);
+}
+
+.dark-theme .score {
+  color: var(--score-color);
+}
+
+
+.dark-theme [class*="trophy-icon"] {
+  color: #fbbf24;
+}
+
+.dark-theme .active-tab {
+  color: var(--primary-color);
+  background-color: var(--card-highlight);
+}
+
+.dark-theme .bg-white.rounded-xl {
+  background-color: var(--card-bg);
+  color: var(--text-color);
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  background: var(--pitch-green);
+  background-image: repeating-linear-gradient(
+    0deg,
+    var(--pitch-stripe),
+    var(--pitch-stripe) 2px,
+    var(--pitch-green) 2px,
+    var(--pitch-green) 40px
+  );
+  transition: background-color 0.3s ease;
+  color: var(--text-color);
+}
+
+.hover\:bg-gray-100:hover {
+  transition: background-color 0.2s ease;
+}
+
+.theme-toggle {
+  position: relative;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  width: 60px;
+  height: 30px;
+}
+
+.toggle-track {
+  background: linear-gradient(to right, #2e5cb8, #4776d7);
+  border-radius: 30px;
+  height: 30px;
+  position: relative;
+  transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.dark .toggle-track {
+  background: linear-gradient(to right, #374151, #1f2937);
+}
+
+.toggle-thumb {
+  background: #ffffff;
+  border-radius: 50%;
+  height: 26px;
+  width: 26px;
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  transform: translateX(0);
+  transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.dark .toggle-thumb {
+  transform: translateX(30px);
+}
+
+.toggle-sun, .toggle-moon {
+  position: absolute;
+  top: 6px;
+  transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.toggle-sun {
+  right: 6px;
+  opacity: 0;
+  transform: scale(0.7);
+}
+
+.toggle-moon {
+  left: 6px;
+  opacity: 1;
+  transform: scale(0.7);
+}
+
+.dark .toggle-sun {
+  opacity: 1;
+}
+
+.dark .toggle-moon {
+  opacity: 0;
+}
+
+.animating .toggle-track {
+  transform: scale(1.05);
+}
+
+@keyframes theme-fade {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.theme-transition {
+  animation: theme-fade 0.5s ease;
+}
+
+.glass-effect {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-in-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-in-out;
+}
+
+.section-collapse-enter {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+}
+
+.section-collapse-enter-active {
+  max-height: 1000px;
+  opacity: 1;
+}
+
+.section-collapse-exit {
+  max-height: 1000px;
+  opacity: 1;
+  transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+}
+
+.section-collapse-exit-active {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.animate-slide-down {
+  animation: slide-down 0.3s ease-in-out;
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.smooth-height-transition {
+  transition: height 0.3s ease;
+  overflow: hidden;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none; 
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none; 
+  scrollbar-width: none; 
+}
+
+.dark-theme nav.glass-effect {
+  background-color: rgba(31, 41, 55, 0.8);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(75, 85, 99, 0.3);
+}
+
+.dark-theme .text-gray-600 {
+  color: #9ca3af;
+}
+
+.dark-theme .active-tab {
+  color: #10b981 !important;
+}
+
+.dark-theme .text-green-600 {
+  color: #10b981;
+}
+
+.dark-theme .modal-content {
+  background-color: var(--modal-bg);
+  color: var(--text-color);
+  border-color: var(--border-color);
+}
+
+.dark-theme .modal-header {
+  background-color: var(--modal-header);
+  color: white;
+}
+
+.dark-theme label {
+  color: var(--text-color) !important;
+}
+
+.dark-theme input[type="text"],
+.dark-theme input[type="number"],
+.dark-theme input[type="range"],
+.dark-theme textarea,
+.dark-theme select {
+  background-color: var(--input-bg);
+  color: var(--input-text);
+  border-color: var(--input-border);
+}
+
+.dark-theme input[type="range"] {
+  background-color: var(--input-border);
+}
+
+.dark-theme .text-gray-500,
+.dark-theme .text-gray-600,
+.dark-theme .text-gray-700 {
+  color: var(--secondary-color);
+}
+.dark-theme input[type="number"] {
+  background-color: var(--input-bg);
+  color: var(--input-text);
+  border-color: var(--input-border);
+}
+
+.dark-theme input[type="number"]::-webkit-inner-spin-button,
+.dark-theme input[type="number"]::-webkit-outer-spin-button {
+  opacity: 0.5;
+}
+.dark-theme [class*="scrollbar-hide"] {
+  background-color: var(--card-bg);
+  padding: 1rem;
+  border-radius: 0.75rem;
+}
+
+.scrollbar-hide .player-card:last-child {
+  margin-bottom: 0;
 }

@@ -48,3 +48,12 @@ export interface GameRoom {
   startTime?: string;
   endTime?: string;
 }
+
+export interface Complaint {
+  id: number;
+  reporter: User;
+  reportedUser: User;
+  gameRoom: GameRoom;
+  reason: string;
+  createdAt: string;
+}
