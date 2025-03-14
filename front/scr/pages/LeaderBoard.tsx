@@ -180,45 +180,208 @@ const Leaderboard = () => {
     new Date(b.playedAt).getTime() - new Date(a.playedAt).getTime()
   );
 };
-
   return (
-    <div className="p-4 pb-20">
-      <h1 className="text-2xl font-bold mb-4">Таблица лидеров</h1>
-      <div 
-        ref={listContainerRef}
-        className="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto"
-      >
-        {users.map((user, index) => (
-          <div 
-            className="bg-white rounded-lg p-4 shadow flex items-center justify-between"
+    <div className="min-h-screen bg-gray-50 pb-20">
+      <div className="bg-blue-600 text-white p-6 rounded-b-3xl shadow-lg relative">
+        {!loading && (
+          <button 
+            onClick={handleRefresh}
+            className="absolute right-4 top-4 bg-white/20 rounded-full p-2"
           >
-            <div className="flex items-center gap-3">
-              {index < 3 ? (
-                <Medal 
-                  size={24} 
-                  className={index === 0 ? 'text-yellow-500' : 
-                            index === 1 ? 'text-gray-400' : 
-                            'text-amber-700'} 
+            <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
+          </button>
+        )}
+      <h1 className="text-2xl font-bold flex items-center gap-2"><Trophy /> Таблица лидеров</h1>
+      </div>
+      <div className="p-4">
+        {loading && !selectedPlayer ? (
+          <div className="flex justify-center items-center h-40">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+          </div>
+        ) : error ? (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl">
+            {error}
+          </div>
+        ) : selectedPlayer ? (
+          <div className="animate-fade-in">
+            <button 
+              onClick={returnToLeaderboard}
+              className="mb-4 inline-flex items-center gap-2 text-blue-600 font-medium"
+            >
+              <ArrowLeft size={18} /> Вернуться к таблице лидеров
+            </button>
+            <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+              <div className="flex items-center mb-6">
+                <img
+                  src={selectedPlayer.photoUrl}
+                  alt={selectedPlayer.username}
+                  className="w-16 h-16 rounded-full object-cover"
                 />
+                <div className="ml-4">
+                  <h2 className="text-xl font-bold">{selectedPlayer.username}</h2>
+                  <div className="flex items-center gap-2 text-blue-600">
+                    <Trophy size={18} /> {selectedPlayer.score} трофеев
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-blue-50 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold">{selectedPlayer.gamesPlayed}</div>
+                  <div className="text-sm text-gray-600">Игр сыграно</div>
+                </div>
+                <div className="bg-green-50 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold">{selectedPlayer.gamesWon}</div>
+                  <div className="text-sm text-gray-600">Побед</div>
+                </div>
+                <div className="bg-yellow-50 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold">
+                    {selectedPlayer.gamesPlayed > 0 
+                      ? Math.round((selectedPlayer.gamesWon / selectedPlayer.gamesPlayed) * 100) 
+                      : 0}%
+                  </div>
+                  <div className="text-sm text-gray-600">Процент побед</div>
+                </div>
+              </div>
+              <h3 className="font-bold text-lg mb-4">История игр</h3>
+              {loadingProfile ? (
+                <div className="flex justify-center items-center h-20">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
+                </div>
+              ) : playerGameHistory.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">У этого игрока пока нет истории игр.</p>
               ) : (
-                <span className="text-gray-500">#{index + 1}</span>
+                <div className="space-y-3 max-h-[400px] overflow-y-auto no-scrollbar">
+                  {playerGameHistory.map(game => (
+                    <div 
+                      key={game.id} 
+                      className={`border rounded-lg p-3 ${
+                        game.wasWinner ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="font-medium"></div>
+                        <div className={`text-sm font-bold px-2 py-1 rounded-full ${
+                          game.wasWinner ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+                        }`}>
+                          {game.result}
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-sm text-gray-600 mb-2">
+                        <div className="flex items-center gap-1">
+                          <Clock size={14} />
+                          {new Date(game.playedAt).toLocaleDateString()}
+                        </div>
+                        {game.gameDuration && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full">
+                              {game.gameDuration}
+                            </span>
+                          </div>
+                        )}
+                        <div>
+                          {game.pointsEarned > 0 ? '+' : ''}{game.pointsEarned} ⭐
+                        </div>
+                      </div>
+                      {game.gameStartTime && game.gameEndTime && (
+                        <div className="text-xs text-gray-500 mt-1 mb-2">
+                          <div className="flex justify-between">
+                            <span>Начало: {new Date(game.gameStartTime).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</span>
+                            <span>Конец: {new Date(game.gameEndTime).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</span>
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex justify-center items-center gap-2">
+                        <div className="text-center">
+                          <div className="text-blue-800 text-xs">Команда A</div>
+                          <div className="font-bold">{game.scoreA}</div>
+                        </div>
+                        <div className="text-xs font-bold">:</div>
+                        <div className="text-center">
+                          <div className="text-red-800 text-xs">Команда B</div>
+                          <div className="font-bold">{game.scoreB}</div>
+                        </div>
+                      </div>
+                </div>
+              ))}
+                </div>
               )}
-              <img 
-                className="w-10 h-10 rounded-full"
-              />
-              <span className="font-medium"></span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Trophy size={20} className="text-yellow-500" />
-              <span className="text-green-600 font-bold"></span>
             </div>
           </div>
-        ))}
-
-        {loadingMore && (
-          <div className="flex justify-center py-4">
-            <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-600"></div>
-          </div>
+        ) : (
+          <>
+            {currentUser && (
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold mb-4">Ваша позиция</h2>
+                <div className={`bg-white rounded-xl shadow-md p-4 flex items-center justify-between your-position`}>
+                  <div className="flex items-center">
+                    <div className="text-xl font-bold w-10 text-center">{currentUserRank || '?'}</div>
+                    <img
+                      src={currentUser.photoUrl}
+                      alt={currentUser.username}
+                      className="w-12 h-12 rounded-full object-cover mx-4"
+                    />
+                    <div className="font-semibold">{currentUser.username}</div>
+                  </div>
+                  <div className="score text-blue-600 text-xl font-bold">{currentUser.score}</div>
+                </div>
+              </div>
+            )}
+            <h2 className="text-xl font-semibold mb-4">Лучшие игроки</h2>
+            <div 
+              ref={listContainerRef} 
+              className="bg-white rounded-xl shadow-md p-4 max-h-[calc(100vh-300px)] overflow-y-auto scrollbar-hide"
+              tabIndex={0}
+              style={{ outline: 'none' }}
+            >
+              {topPlayers.map((player, index) => (
+                <div 
+                  key={player.id} 
+                  className={`player-card bg-white rounded-xl shadow-md p-4 flex items-center justify-between hover:bg-gray-100 cursor-pointer ${
+                    currentUser && player.id === currentUser.id ? 'your-position' : ''
+                  }`}
+                  onClick={() => viewPlayerProfile(player)}
+                >
+                  <div className="flex items-center">
+                    {index < 3 ? (
+                      <div className="w-8 h-8 flex items-center justify-center">
+                        {index === 0 && <Medal className="w-8 h-8 text-yellow-400" />}
+                        {index === 1 && <Medal className="w-8 h-8 text-gray-400" />}
+                        {index === 2 && <Medal className="w-8 h-8 text-amber-600" />}
+                      </div>
+                    ) : (
+                      <div className="text-lg font-semibold w-8 h-8 flex items-center justify-center">{index + 1}</div>
+                    )}
+                    <img
+                      src={player.photoUrl}
+                      alt={player.username}
+                      className="w-12 h-12 rounded-full object-cover mx-3"
+                    />
+                    <div className="font-semibold">{player.username}</div>
+                  </div>
+                  <div className="score text-blue-600 text-xl font-bold">{player.score}</div>
+                </div>
+              ))}
+              {loadingMore && (
+                <div className="flex justify-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-600"></div>
+                </div>
+              )}
+              {!loadingMore && pagination && pagination.page < pagination.total_pages && (
+                <button 
+                  onClick={handleLoadMore}
+                  className="w-full py-2 flex items-center justify-center gap-2 text-blue-600 font-medium"
+                >
+                  <ChevronDown size={16} />
+                  Загрузить еще
+                </button>
+              )}
+              {pagination && pagination.page >= pagination.total_pages && topPlayers.length > 0 && (
+                <div className="text-center text-gray-500 py-2">
+                  Вы достигли конца списка
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
     </div>
