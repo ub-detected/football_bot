@@ -84,7 +84,26 @@ const Leaderboard = () => {
     fetchLeaderboard(1, true);
   }, [fetchLeaderboard]);
 
-
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!listContainerRef.current || loading || loadingMore || endReachedRef.current) return;
+      const { scrollTop, scrollHeight, clientHeight } = listContainerRef.current;
+      if (scrollTop + clientHeight >= scrollHeight - 200) {
+        if (pagination && pagination.page < pagination.total_pages) {
+          fetchLeaderboard(pagination.page + 1);
+        }
+      }
+    };
+    const listContainer = listContainerRef.current;
+    if (listContainer) {
+      listContainer.addEventListener('scroll', handleScroll);
+    }
+    return () => {
+      if (listContainer) {
+        listContainer.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, [loading, loadingMore, pagination, fetchLeaderboard]);
 
 
   return (
