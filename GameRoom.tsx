@@ -680,4 +680,30 @@ const GameRoom = () => {
                   ? gameRoom.scoreA > gameRoom.scoreB 
                     ? 'bg-green-50' 
                     : gameRoom.scoreA < gameRoom.scoreB 
-                      
+                      ? 'bg-red-50' 
+                      : 'bg-yellow-50'
+                  : 'bg-gray-50'
+              }`}>
+                <h3 className="font-semibold mb-2">Команда A</h3>
+                <ul className="space-y-2">
+                  {gameRoom.teamA.map(player => (
+                    <li key={player.id} className="flex items-center gap-2">
+                      <img
+                        src={player.photoUrl}
+                        alt={player.username}
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                      <span className="truncate flex-1">{player.username}</span>
+                      {gameRoom.scoreA !== null && gameRoom.scoreB !== null && gameRoom.scoreA > gameRoom.scoreB && (
+                        <span className="ml-auto text-green-600 font-semibold whitespace-nowrap">Победа</span>
+                      )}
+                      {gameRoom.scoreA !== null && gameRoom.scoreB !== null && gameRoom.scoreA < gameRoom.scoreB && (
+                        <span className="ml-auto text-red-600 whitespace-nowrap">Проигрыш</span>
+                      )}
+                      {gameRoom.scoreA !== null && gameRoom.scoreB !== null && gameRoom.scoreA === gameRoom.scoreB && (
+                        <span className="ml-auto text-yellow-600 whitespace-nowrap">Ничья</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
