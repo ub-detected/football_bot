@@ -43,7 +43,7 @@ services:
       - FLASK_DEBUG=0
       - DATABASE_URL=postgresql://postgres:footbot777Azat@db/mydb
       - BOT_TOKEN=${BOT_TOKEN:-7853279188:AAGIYneVvdM1WqDka32zv3AdW8d2pCZLr4c}
-      - RESET_DB=true
+      - RESET_DB=false
     depends_on:
       - db
     networks:

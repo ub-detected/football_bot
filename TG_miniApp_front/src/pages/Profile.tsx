@@ -15,16 +15,13 @@ const Profile = () => {
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
   const [authenticating, setAuthenticating] = useState(false);
   
-  // Предотвращаем постоянные обновления
   const isFirstRender = useRef(true);
 
-  // Функция для прямой попытки авторизации через Telegram
   const authenticateWithTelegram = useCallback(async () => {
     try {
       setAuthenticating(true);
       setDebugInfo("🔑 Пытаемся авторизоваться через Telegram...");
       
-      // Проверяем доступность Telegram WebApp
       if (typeof WebApp !== 'undefined' && WebApp.initData) {
         console.log("⭐ Прямая авторизация через Telegram WebApp...");
         
@@ -48,14 +45,12 @@ const Profile = () => {
     }
   }, []);
 
-  // Функция для загрузки данных пользователя
   const fetchUserData = useCallback(async () => {
     try {
       setLoading(true);
       console.log("⭐ Начинаем загрузку данных пользователя...");
       setDebugInfo("Загрузка данных пользователя...");
       
-      // Проверяем доступность Telegram WebApp
       if (typeof WebApp !== 'undefined' && WebApp.initData) {
         console.log("⭐ Пытаемся авторизоваться через Telegram WebApp...");
         console.log("⭐ WebApp данные доступны:", !!WebApp.initData);
@@ -63,7 +58,6 @@ const Profile = () => {
         setDebugInfo("Авторизация через Telegram API...");
         
         try {
-          // Выводим информацию о пользователе из Telegram (для отладки)
           if (WebApp.initDataUnsafe && WebApp.initDataUnsafe.user) {
             const tgUser = WebApp.initDataUnsafe.user;
             console.log("⭐ Данные пользователя из Telegram:", {
@@ -80,7 +74,6 @@ const Profile = () => {
             setDebugInfo("Ошибка: initDataUnsafe.user недоступен");
           }
           
-          // Аутентификация через Telegram
           console.log("⭐ Отправляем запрос на авторизацию через Telegram API...");
           setDebugInfo("Отправка запроса авторизации...");
           
@@ -93,24 +86,20 @@ const Profile = () => {
         } catch (authError: any) {
           console.error('❌ Ошибка аутентификации через Telegram:', authError);
           setDebugInfo(`Ошибка Telegram: ${authError?.message || 'Неизвестная ошибка'}`);
-          // Если аутентификация через Telegram не удалась, пробуем обычный метод
         }
       } else {
         console.log("⚠️ Telegram WebApp API недоступен, используем резервный метод");
         setDebugInfo("Telegram WebApp API недоступен. Использую резервный метод...");
       }
       
-      // Запасной вариант - получение текущего пользователя через обычный API
       console.log("⭐ Используем запасной метод получения данных пользователя...");
       setDebugInfo("Использую резервный метод получения данных...");
       const userData = await userApi.getCurrentUser();
       console.log("✅ Получены данные пользователя через обычный API", userData);
       
-      // Проверяем, нужна ли авторизация через Telegram
       if (userData.needs_auth) {
         console.log("⚠️ Сервер запрашивает авторизацию через Telegram");
         setDebugInfo("Требуется авторизация через Telegram");
-        // Пробуем авторизоваться
         return await authenticateWithTelegram();
       }
       
@@ -122,7 +111,6 @@ const Profile = () => {
       const errorMessage = err?.message || 'Failed to fetch current user';
       setError(errorMessage);
       
-      // Если ошибка "Failed to fetch current user", предлагаем авторизацию через Telegram
       if (errorMessage.includes('Failed to fetch current user')) {
         setDebugInfo('Не удалось получить пользователя. Требуется авторизация через Telegram.');
       } else {
@@ -133,7 +121,6 @@ const Profile = () => {
     }
   }, [authenticateWithTelegram]);
 
-  // Функция для загрузки истории игр
   const fetchGameHistory = useCallback(async () => {
     if (!user) return;
     
@@ -142,20 +129,16 @@ const Profile = () => {
       const history = await userApi.getGameHistory();
       setGameHistory(history);
     } catch (err) {
-      // Обработка ошибки без вывода в консоль
     } finally {
       setHistoryLoading(false);
     }
   }, [user]);
 
-  // Загрузка данных только при первом рендере компонента
   useEffect(() => {
-    // Всегда обновляем данные при открытии профиля
     fetchUserData().then(() => {
       isFirstRender.current = false;
     });
     
-    // Добавляем обработчик для обновления данных при открытии вкладки
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         console.log('Вкладка стала активной, обновляем данные...');
@@ -165,34 +148,28 @@ const Profile = () => {
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
-    // Удаляем слушатель при размонтировании
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [fetchUserData]);
 
-  // Загрузка истории игр после получения данных пользователя
   useEffect(() => {
     if (user) {
       fetchGameHistory();
     }
   }, [user, fetchGameHistory]);
 
-  // Вычисляем процент побед
   const calculateWinRate = () => {
     if (!user || user.gamesPlayed === 0) return '0%';
     return `${Math.round((user.gamesWon / user.gamesPlayed) * 100)}%`;
   };
 
-  // Функция для принудительного обновления данных
   const handleRefresh = () => {
     console.log("Ручное обновление данных пользователя...");
     
-    // Сначала сбрасываем текущие данные
     setUser(null);
     setGameHistory([]);
     
-    // Затем заново загружаем все
     fetchUserData().then(() => {
       fetchGameHistory();
     });
@@ -255,7 +232,6 @@ const Profile = () => {
             <h1 className="text-2xl font-bold mt-4">{user.username}</h1>
             
             <div className="flex items-center gap-2 mt-4">
-              {/* Кнопка для обновления данных */}
               <button 
                 onClick={handleRefresh}
                 className="flex items-center gap-1 bg-white/20 text-white px-3 py-1 rounded-full text-sm"
@@ -292,7 +268,6 @@ const Profile = () => {
           </div>
         ) : user && (
           <>
-            {/* Блок с настройками профиля */}
             <div className="bg-white rounded-xl shadow-md p-6 mb-4">
               <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -311,11 +286,8 @@ const Profile = () => {
                   <ThemeSwitch initialTheme={user.themePreference || 'light'} />
                 </div>
               </div>
-              
-              {/* Здесь можно добавить другие настройки пользователя */}
             </div>
             
-            {/* Блок статистики */}
             <div className="grid grid-cols-2 gap-4 mb-6">
               <div className="bg-white rounded-xl p-4 shadow-md">
                 <div className="flex items-center gap-2 text-blue-600 mb-2">
@@ -350,7 +322,6 @@ const Profile = () => {
               <p className="text-2xl font-bold">{user.score}</p>
             </div>
             
-            {/* Компонент истории игр */}
             <GameHistoryList 
               history={gameHistory}
               loading={historyLoading}

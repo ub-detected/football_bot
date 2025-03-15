@@ -63,11 +63,9 @@ class User(db.Model):
     telegram_id = db.Column(db.String(100), unique=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Поле для отслеживания количества несовпадений счета (для штрафов капитанам)
     score_mismatch_count = db.Column(db.Integer, default=0)
     
-    # Поле для хранения предпочтений темы пользователя
-    theme_preference = db.Column(db.String(10), default='light')  # 'light' или 'dark'
+    theme_preference = db.Column(db.String(10), default='light')
     
     def to_dict(self):
         return {        
@@ -98,8 +96,7 @@ class GameRoom(db.Model):
     time_range = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Новые поля для управления игрой
-    status = db.Column(db.String(20), default='waiting')  # waiting, team_selection, in_progress, score_submission, completed
+    status = db.Column(db.String(20), default='waiting')
     team_a = db.relationship('User', secondary='team_a_players', backref='team_a_rooms')
     team_b = db.relationship('User', secondary='team_b_players', backref='team_b_rooms')
     captain_a_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
@@ -111,11 +108,9 @@ class GameRoom(db.Model):
     captain_a_score_submission = db.Column(db.String(10), nullable=True)
     captain_b_score_submission = db.Column(db.String(10), nullable=True)
     
-    # Поля для отслеживания попыток ввода счета
     score_submission_attempts = db.Column(db.Integer, default=0)
     score_mismatch = db.Column(db.Boolean, default=False)
     
-    # Новые поля для хранения времени начала и конца игры
     start_time = db.Column(db.DateTime, nullable=True)
     end_time = db.Column(db.DateTime, nullable=True)
     
@@ -253,41 +248,23 @@ def get_user(user_id):
 
 @app.route('/api/users/me', methods=['GET'])
 def get_current_user():
-    """
-    Получает информацию о текущем пользователе
-    
-    Приоритеты:
-    1. По X-Telegram-ID заголовку (новый метод)
-    2. По глобальной переменной current_user_id (для совместимости)
-    3. Если база пуста, создает временного пользователя
-    
-    Возвращает:
-    - JSON с данными пользователя
-    - Информацию об ошибке, если пользователь не найден
-    """
-    # Получаем Telegram ID из заголовка запроса
     telegram_id = request.headers.get('X-Telegram-ID')
     
-    # Логируем все заголовки для отладки
     print("📋 Заголовки запроса:")
     for header, value in request.headers.items():
         print(f"  {header}: {value}")
     
-    # Проверяем количество пользователей в базе
     user_count = User.query.count()
     print(f"ℹ️ Количество пользователей в базе данных: {user_count}")
     
     if telegram_id:
         print(f"🔄 Пытаемся найти пользователя по Telegram ID: {telegram_id}")
-        # Ищем пользователя по Telegram ID
         user = User.query.filter_by(telegram_id=telegram_id).first()
         if user:
-            # Устанавливаем current_user_id для совместимости с другими частями кода
             global current_user_id
             current_user_id = user.id
             print(f"✅ Найден пользователь по Telegram ID: {user.id}, {user.username}, фото: {user.photo_url}")
             
-            # Проверяем наличие photo_url
             if not user.photo_url:
                 print(f"⚠️ У пользователя {user.username} (ID={user.id}) отсутствует фото")
             
@@ -295,11 +272,9 @@ def get_current_user():
         else:
             print(f"❌ Пользователь с Telegram ID {telegram_id} не найден в базе данных")
             
-            # Если база пуста, и Telegram ID предоставлен, создаем временного пользователя
             if user_count == 0:
                 print(f"📝 База данных пуста. Создаем временного пользователя с Telegram ID: {telegram_id}")
                 try:
-                    # Создаем временного пользователя
                     temp_user = User(
                         username=f"Пользователь {telegram_id}",
                         telegram_id=telegram_id,
@@ -308,7 +283,6 @@ def get_current_user():
                     db.session.add(temp_user)
                     db.session.commit()
                     
-                    # Устанавливаем current_user_id
                     current_user_id = temp_user.id
                     
                     print(f"✅ Создан временный пользователь: ID={temp_user.id}, {temp_user.username}")
@@ -318,7 +292,6 @@ def get_current_user():
     else:
         print("⚠️ Заголовок X-Telegram-ID не найден в запросе")
     
-    # Если нет Telegram ID или пользователь не найден, проверяем current_user_id
     print(f"🔄 Проверяем глобальную переменную current_user_id: {current_user_id}")
     if current_user_id:
         user = User.query.get(current_user_id)
@@ -328,14 +301,12 @@ def get_current_user():
         else:
             print(f"❌ Пользователь с ID {current_user_id} не найден в базе данных")
     
-    # Если база пуста, создаем временного пользователя
     if user_count == 0:
         print(f"📝 База данных пуста. Создаем временного пользователя")
         try:
             import time
             import random
             
-            # Создаем временного пользователя
             temp_telegram_id = f"temp_{int(time.time())}_{random.randint(1000, 9999)}"
             temp_user = User(
                 username="Временный пользователь",
@@ -345,7 +316,6 @@ def get_current_user():
             db.session.add(temp_user)
             db.session.commit()
             
-            # Устанавливаем current_user_id
             current_user_id = temp_user.id
             
             print(f"✅ Создан временный пользователь: ID={temp_user.id}, {temp_user.username}")
@@ -353,7 +323,6 @@ def get_current_user():
         except Exception as e:
             print(f"❌ Ошибка при создании временного пользователя: {str(e)}")
     
-    # Если есть пользователи, но мы все еще не нашли нужного, возвращаем первого
     if user_count > 0:
         first_user = User.query.first()
         if first_user:
@@ -361,7 +330,6 @@ def get_current_user():
             current_user_id = first_user.id
             return jsonify(first_user.to_dict())
     
-    # Если вообще нет пользователей и не удалось создать временного
     error_message = {
         'error': 'No users found. Please authenticate with Telegram first',
         'message': 'Пользователь не найден. Пожалуйста, пройдите аутентификацию через Telegram.',
@@ -1320,19 +1288,11 @@ def switch_user(user_id):
 
 @app.route('/api/auth/telegram', methods=['POST'])
 def auth_telegram():
-    """
-    Аутентифицирует пользователя по данным из Telegram
-    Принимает initData от Telegram Web App и проверяет его валидность
-    ВСЕГДА обновляет данные пользователя, если он найден в базе
-    ВСЕГДА создает нового пользователя, если он не найден в базе, даже при минимальных данных
-    """
     try:
-        # Получаем данные инициализации от Telegram
         init_data = request.json.get('initData', '')
         
         print(f"🔄 Начата аутентификация Telegram, получено {len(init_data) if init_data else 0} байт данных")
         
-        # Для отладки - вывод полного содержимого initData (урезаем до разумных пределов для лога)
         print(f"===== НАЧАЛО INIT_DATA =====")
         if len(init_data) > 1000:
             print(f"{init_data[:500]}...{init_data[-500:]}")
@@ -1340,7 +1300,6 @@ def auth_telegram():
             print(init_data)
         print(f"===== КОНЕЦ INIT_DATA =====")
         
-        # Проверяем подпись от Telegram 
         bot_token = os.environ.get('BOT_TOKEN')
         if not bot_token:
             print("⚠️ ВНИМАНИЕ: Переменная окружения BOT_TOKEN не установлена!")
@@ -1353,14 +1312,11 @@ def auth_telegram():
             except Exception as e:
                 print(f"⚠️ Ошибка при проверке подписи Telegram: {str(e)}. Продолжаем без проверки...")
         
-        # Парсим данные пользователя из initData
         user_data = parse_telegram_init_data(init_data)
         
-        # Если не удалось получить данные пользователя, создаем временного пользователя
         if not user_data or 'id' not in user_data:
             print("⚠️ Не удалось получить данные пользователя из initData. Создаем временного пользователя.")
             
-            # Генерируем временный ID, если нет настоящего ID
             import random
             import time
             temp_id = str(int(time.time())) + str(random.randint(1000, 9999))
@@ -1373,41 +1329,33 @@ def auth_telegram():
             }
             print(f"🆕 Создан временный профиль пользователя: {user_data}")
         
-        # Обязательные и необязательные поля
         tg_id = str(user_data['id'])
         tg_username = user_data.get('username', '')
         tg_first_name = user_data.get('first_name', '')
         tg_last_name = user_data.get('last_name', '')
         tg_photo_url = user_data.get('photo_url', '')
         
-        # Вывод полученных данных для отладки
         print(f"📱 Полученные данные от Telegram: id={tg_id}, username={tg_username}, " + 
               f"first_name={tg_first_name}, last_name={tg_last_name}, photo_url={tg_photo_url}")
         
-        # Формируем имя пользователя на основе доступных данных
         display_name = None
         if tg_username:
             display_name = tg_username
         elif tg_first_name or tg_last_name:
             display_name = f"{tg_first_name} {tg_last_name}".strip()
         
-        # Если имя пользователя всё еще пустое, используем ID как запасной вариант
         if not display_name:
             display_name = f"User {tg_id}"
         
         print(f"👤 Сформированные данные пользователя: ID={tg_id}, имя={display_name}, фото={tg_photo_url}")
         
-        # Ищем пользователя по Telegram ID
         user = User.query.filter_by(telegram_id=tg_id).first()
         
-        # Если пользователь найден, ВСЕГДА обновляем его данные 
         if user:
             print(f"✅ Найден существующий пользователь: ID={user.id}, имя={user.username}, фото={user.photo_url}")
             
-            # ВСЕГДА принудительно обновляем данные пользователя из Telegram
             updates_made = []
             
-            # Обновляем имя, только если оно не пустое
             if display_name:
                 if user.username != display_name:
                     print(f"🔄 Обновляем имя пользователя с '{user.username}' на '{display_name}'")
@@ -1416,7 +1364,6 @@ def auth_telegram():
                 else:
                     print(f"ℹ️ Имя пользователя уже актуально: '{display_name}'")
                 
-            # Обновляем фото, только если оно не пустое
             if tg_photo_url:
                 if user.photo_url != tg_photo_url:
                     print(f"🔄 Обновляем фото пользователя с '{user.photo_url}' на '{tg_photo_url}'")
@@ -1425,7 +1372,6 @@ def auth_telegram():
                 else:
                     print(f"ℹ️ Фото пользователя уже актуально")
             
-            # Сохраняем обновления
             if updates_made:
                 print(f"💾 Сохраняем обновления для пользователя {user.id}: {', '.join(updates_made)}")
                 db.session.commit()
@@ -1433,7 +1379,6 @@ def auth_telegram():
             else:
                 print(f"ℹ️ Данные пользователя не требуют обновления")
         else:
-            # Если пользователь не найден, создаем нового
             print(f"🆕 Пользователь не найден, создаем нового с ID={tg_id}")
             user = User(
                 username=display_name,
@@ -1442,19 +1387,17 @@ def auth_telegram():
             )
             db.session.add(user)
             
-            # Пробуем сохранить с обработкой возможных ошибок
             try:
                 db.session.commit()
                 print(f"✅ Создан новый пользователь: {display_name} (Telegram ID: {tg_id})")
             except Exception as db_error:
                 db.session.rollback()
                 print(f"❌ Ошибка при создании пользователя: {str(db_error)}")
-                # Попытка создать пользователя с другим именем и без Telegram ID
                 try:
                     unique_name = f"{display_name}_{int(time.time())}"
                     user = User(
                         username=unique_name,
-                        telegram_id=f"{tg_id}_{int(time.time())}",  # Делаем ID уникальным
+                        telegram_id=f"{tg_id}_{int(time.time())}",
                         photo_url=tg_photo_url
                     )
                     db.session.add(user)
@@ -1465,11 +1408,9 @@ def auth_telegram():
                     print(f"❌ Вторая попытка создания пользователя также не удалась: {str(second_error)}")
                     return jsonify({'error': 'Failed to create user'}), 500
         
-        # Устанавливаем текущего пользователя (для совместимости с тестовой средой)
         global current_user_id
         current_user_id = user.id
         
-        # Возвращаем данные пользователя
         user_dict = user.to_dict()
         print(f"Возвращаем данные пользователя: {user_dict}")
         return jsonify(user_dict)

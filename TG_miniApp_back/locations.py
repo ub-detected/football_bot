@@ -36,7 +36,6 @@ POPULAR_FOOTBALL_VENUES = [
     "Петровский парк", "Черкизово", "Измайлово", "Сетунь", "Коломенское"
 ]
 
-# Комбинированный список всех локаций
 ALL_LOCATIONS = MOSCOW_DISTRICTS + POPULAR_FOOTBALL_VENUES
 
 def normalize_text(text):
@@ -56,25 +55,11 @@ def normalize_text(text):
     return text
 
 def search_locations(query):
-    """
-    Поиск локаций по запросу с улучшенным алгоритмом:
-    - игнорирует разницу между 'е' и 'ё'
-    - находит частичные совпадения
-    - поддерживает опечатки (расстояние Левенштейна)
-    
-    Аргументы:
-        query (str): Строка запроса
-        
-    Возвращает:
-        list: Список локаций, соответствующих запросу
-    """
     if not query:
         return []
     
-    # Нормализуем запрос    
     normalized_query = normalize_text(query)
     
-    # Если запрос менее 2 символов, требуем точное совпадение начала слова
     if len(normalized_query) < 2:
         results = []
         for location in ALL_LOCATIONS:
@@ -86,27 +71,22 @@ def search_locations(query):
                     break
         return results
     
-    # Результаты поиска с разными уровнями соответствия
-    exact_matches = []  # Точные совпадения
-    word_starts = []    # Начало слов
-    contains = []       # Содержит подстроку
-    fuzzy_matches = []  # Нечеткие совпадения (опечатки)
+    exact_matches = []
+    word_starts = []
+    contains = []
+    fuzzy_matches = []
     
     for location in ALL_LOCATIONS:
-        # Нормализуем локацию
         normalized_location = normalize_text(location)
         
-        # 1. Проверяем точное совпадение
         if normalized_location == normalized_query:
             exact_matches.append(location)
             continue
             
-        # 2. Проверяем, начинается ли локация с запроса
         if normalized_location.startswith(normalized_query):
             exact_matches.append(location)
             continue
             
-        # 3. Проверяем начало слов
         words = normalized_location.split()
         word_start_match = False
         for word in words:
@@ -117,27 +97,19 @@ def search_locations(query):
         if word_start_match:
             continue
             
-        # 4. Проверяем вхождение подстроки
         if normalized_query in normalized_location:
             contains.append(location)
             continue
             
-        # 5. Нечеткий поиск (допускаем опечатки)
-        # Используем упрощенную проверку для коротких запросов (> 3 символов)
         if len(normalized_query) >= 3:
-            # Проверяем, есть ли примерное совпадение (допускаем 1 опечатку)
-            # Для простоты используем проверку вхождения подстрок
-            # Например, для "арбат" проверим "арб", "рба", "бат"
             query_parts = [normalized_query[i:i+len(normalized_query)-1] for i in range(2)]
             for part in query_parts:
                 if len(part) >= 2 and part in normalized_location:
                     fuzzy_matches.append(location)
                     break
     
-    # Объединяем результаты, отдавая приоритет более точным совпадениям
     results = exact_matches + word_starts + contains + fuzzy_matches
     
-    # Удаляем дубликаты, сохраняя порядок
     unique_results = []
     for item in results:
         if item not in unique_results:
@@ -146,12 +118,4 @@ def search_locations(query):
     return unique_results
 
 def get_all_locations():
-    """Возвращает полный список всех локаций"""
-    return ALL_LOCATIONS
-
-# Удаляем тестовый код
-# if __name__ == "__main__":
-#     # Тестирование функции поиска
-#     query = "арк"
-#     results = search_locations(query)
-#     print(f'Результаты поиска для "{query}": {results}') 
+    return ALL_LOCATIONS 

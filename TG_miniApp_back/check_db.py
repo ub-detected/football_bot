@@ -5,19 +5,15 @@ def check_database():
     with app.app_context():
         print("Проверка состояния базы данных...")
         
-        # Проверяем количество пользователей
         user_count = User.query.count()
         print(f"Количество пользователей: {user_count}")
         
-        # Проверяем количество игровых комнат
         game_room_count = GameRoom.query.count()
         print(f"Количество игровых комнат: {game_room_count}")
         
-        # Проверяем количество записей истории игр
         game_history_count = GameHistory.query.count()
         print(f"Количество записей истории игр: {game_history_count}")
         
-        # Проверяем, что таблицы созданы и доступны
         tables = ["users", "game_rooms", "game_history", "game_room_players", "team_a_players", "team_b_players", "complaints"]
         for table in tables:
             try:
