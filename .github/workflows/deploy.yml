@@ -49,8 +49,8 @@ jobs:
           nginx:
             image: nginx:alpine
             ports:
-              - "80:80"
-              - "443:443"
+              - "8080:80"
+              - "8443:443"
             volumes:
               - ./nginx/conf:/etc/nginx/conf.d
               - ./nginx/ssl:/etc/nginx/ssl
@@ -108,24 +108,6 @@ jobs:
         server {
             listen 80;
             server_name www.findyoursport.ru findyoursport.ru;
-            
-            location / {
-                return 301 https://$host$request_uri;
-            }
-        }
-
-        server {
-            listen 443 ssl;
-            server_name www.findyoursport.ru findyoursport.ru;
-            
-            ssl_certificate /etc/nginx/ssl/fullchain.pem;
-            ssl_certificate_key /etc/nginx/ssl/privkey.pem;
-            
-            ssl_protocols TLSv1.2 TLSv1.3;
-            ssl_prefer_server_ciphers on;
-            ssl_ciphers "EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH";
-            ssl_session_cache shared:SSL:10m;
-            ssl_session_timeout 1h;
             
             location / {
                 proxy_pass http://frontend:5173;
@@ -246,6 +228,9 @@ jobs:
           echo "Остановка конфликтующих сервисов, если они запущены..."
           # Если на сервере уже есть PostgreSQL, останавливаем его
           sudo systemctl stop postgresql.service || true
+          # Остановка системного Nginx для освобождения портов
+          echo "Остановка системного Nginx..."
+          sudo systemctl stop nginx || true
           
           echo "Проверка прав доступа на скрипте wait-for-db.sh..."
           chmod +x wait-for-db.sh
@@ -291,6 +276,9 @@ jobs:
           # Ожидаем небольшую паузу для запуска контейнеров
           sleep 10
           
+          echo "Проверка состояния контейнеров и портов:"
+          netstat -tulpn | grep -E '5001|5173|5432|80|443|8080|8443' || echo "Нет прослушиваемых портов приложения"
+          
           echo "Логи контейнера базы данных:"
           docker-compose logs db
           
@@ -301,9 +289,25 @@ jobs:
           docker-compose logs nginx
           
           echo "Проверка сетевых подключений между контейнерами:"
-          docker network inspect app-network
+          docker network ls | grep app-network || echo "Сеть app-network не найдена!"
+          docker network inspect footbot_app-network || true
+          
+          echo "Проверка подключения к бэкенду:"
+          curl -v http://localhost:5001/api/users || echo "Ошибка подключения к API бэкенда"
           
           echo "Перезапуск Nginx..."
           sudo systemctl restart nginx || true
           echo "Статус Nginx:"
           sudo systemctl status nginx || true
+          
+          echo "Проверка доступности приложения..."
+          echo "Фронтенд (через контейнер):"
+          curl -s http://localhost:5173 > /dev/null && echo "Фронтенд доступен" || echo "Фронтенд НЕ доступен"
+          
+          echo "Бэкенд (напрямую):"
+          curl -s http://localhost:5001/api/users > /dev/null && echo "Бэкенд доступен" || echo "Бэкенд НЕ доступен"
+          
+          echo "Приложение через Nginx (без SSL):"
+          curl -s http://localhost:8080 > /dev/null && echo "Приложение через Nginx доступно" || echo "Приложение через Nginx НЕ доступно"
+          
+          echo "Деплой завершен. Проверьте доступность приложения по адресу: http://findyoursport.ru:8080"

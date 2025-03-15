@@ -1,6 +1,8 @@
 import { User, GameRoom, GameHistory } from './types';
 
-export const API_URL = 'http://localhost:5001/api';
+// Используем динамический URL в зависимости от окружения
+// В production используем относительный путь, который будет работать через Nginx
+export const API_URL = window.location.origin + '/api';
 
 // Функция для обработки ошибок API
 const handleApiError = (error: any) => {
