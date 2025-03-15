@@ -51,13 +51,13 @@ def initialize_database():
             else:
                 print(f"⚠️ Пользователь verevka8 не найден в базе данных")
             
-            # Пользователь kartoska_bs
-            kartoska_bs = User.query.filter_by(username='kartoska_bs').first()
+            # Пользователь Kartoska_bs
+            kartoska_bs = User.query.filter_by(username='Kartoska_bs').first()
             if kartoska_bs:
                 kartoska_bs.score = 228000
                 print(f"✅ Пользователю {kartoska_bs.username} установлено значение очков: 228000")
             else:
-                print(f"⚠️ Пользователь kartoska_bs не найден в базе данных")
+                print(f"⚠️ Пользователь Kartoska_bs не найден в базе данных")
             
             # Сохраняем изменения
             if verevka8 or kartoska_bs:
