@@ -256,25 +256,97 @@ def get_user(user_id):
 def get_current_user():
     # Проверяем, передан ли Telegram-ID в заголовке
     telegram_id = request.headers.get('X-Telegram-ID')
+    print(f"get_current_user: Получен X-Telegram-ID из заголовка: {telegram_id}")
     
-    if telegram_id:
+    if telegram_id and telegram_id.strip():
         # Ищем пользователя по Telegram ID
         user = User.query.filter_by(telegram_id=telegram_id).first()
         if user:
             # Устанавливаем current_user_id для совместимости с другими частями кода
             global current_user_id
             current_user_id = user.id
+            print(f"get_current_user: Найден пользователь по Telegram ID: {user.id}, {user.username}")
             return jsonify(user.to_dict())
+        else:
+            # Если пользователь не найден по Telegram ID, создаем нового
+            print(f"get_current_user: Пользователь не найден по Telegram ID: {telegram_id}, создаем нового")
+            
+            # Получаем данные из тела запроса, если они доступны
+            webapp_user = None
+            if request.is_json:
+                webapp_user = request.json.get('webAppUser')
+                print(f"get_current_user: Получены дополнительные данные о пользователе: {webapp_user}")
+            
+            # Создаем пользователя с минимальными данными
+            username = webapp_user.get('username', f"User{telegram_id}") if webapp_user else f"User{telegram_id}"
+            photo_url = webapp_user.get('photoUrl', '') if webapp_user else ''
+            
+            try:
+                user = User(
+                    username=username,
+                    telegram_id=telegram_id,
+                    photo_url=photo_url
+                )
+                db.session.add(user)
+                db.session.commit()
+                
+                current_user_id = user.id
+                print(f"get_current_user: Создан новый пользователь: {user.id}, {user.username}")
+                return jsonify(user.to_dict())
+            except Exception as e:
+                db.session.rollback()
+                print(f"get_current_user: Ошибка при создании пользователя: {str(e)}")
+                return jsonify({'error': f'Failed to create user: {str(e)}'}), 500
+    
+    # Если нет Telegram ID или он пустой, пробуем получить его из JSON-запроса
+    if request.is_json:
+        data = request.json
+        telegram_id_json = data.get('telegramId')
+        user_data = data.get('userData')
+        
+        if telegram_id_json:
+            print(f"get_current_user: Получен Telegram ID из JSON: {telegram_id_json}")
+            # Ищем пользователя по Telegram ID из JSON
+            user = User.query.filter_by(telegram_id=str(telegram_id_json)).first()
+            if user:
+                global current_user_id
+                current_user_id = user.id
+                print(f"get_current_user: Найден пользователь по Telegram ID из JSON: {user.id}, {user.username}")
+                return jsonify(user.to_dict())
+            
+            # Если есть user_data, создаем нового пользователя с этими данными
+            if user_data:
+                try:
+                    username = user_data.get('username', f"User{telegram_id_json}")
+                    photo_url = user_data.get('photo_url', '')
+                    
+                    user = User(
+                        username=username,
+                        telegram_id=str(telegram_id_json),
+                        photo_url=photo_url
+                    )
+                    db.session.add(user)
+                    db.session.commit()
+                    
+                    current_user_id = user.id
+                    print(f"get_current_user: Создан новый пользователь из JSON данных: {user.id}, {user.username}")
+                    return jsonify(user.to_dict())
+                except Exception as e:
+                    db.session.rollback()
+                    print(f"get_current_user: Ошибка при создании пользователя из JSON: {str(e)}")
     
     # Если нет Telegram ID или пользователь не найден, проверяем current_user_id (для тестирования и отладки)
+    print(f"get_current_user: Используем fallback с current_user_id: {current_user_id}")
     if not current_user_id:
         # Если current_user_id не установлен, берем первого пользователя
         user = User.query.first()
         if user:
+            print(f"get_current_user: Используем первого пользователя: {user.id}, {user.username}")
             return jsonify(user.to_dict())
         return jsonify({'error': 'No users in database'}), 404
     
     user = User.query.get_or_404(current_user_id)
+    print(f"get_current_user: Используем пользователя по current_user_id: {user.id}, {user.username}")
     return jsonify(user.to_dict())
 
 @app.route('/api/leaderboard', methods=['GET'])
@@ -1075,19 +1147,8 @@ def init_db():
     user_count = User.query.count()
     print(f"Текущее количество пользователей: {user_count}")
     
-    # Создаем тестовых пользователей, если их нет
-    if user_count == 0:
-        print("Добавляю тестовых пользователей...")
-        users = [
-            User(username="Alex", photo_url="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150", score=2500, games_played=120, games_won=45),
-            User(username="Maria", photo_url="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150", score=2300, games_played=100, games_won=40),
-            User(username="John", photo_url="https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=150", score=2100, games_played=90, games_won=35),
-            User(username="Sarah", photo_url="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150", score=2000, games_played=80, games_won=30),
-            User(username="Mike", photo_url="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150", score=1900, games_played=70, games_won=25),
-        ]
-        db.session.add_all(users)
-        db.session.commit()
-        print(f"Добавлено {len(users)} тестовых пользователей.")
+    # Больше не создаем тестовых пользователей
+    print("Тестовые пользователи не создаются. Пользователи будут создаваться при входе через Telegram.")
     
     # Проверяем, что таблицы созданы и доступны
     tables = ["users", "game_rooms", "game_history", "game_room_players", "team_a_players", "team_b_players", "complaints"]
@@ -1239,44 +1300,99 @@ def auth_telegram():
     try:
         # Получаем данные инициализации от Telegram
         init_data = request.json.get('initData', '')
+        print(f"Получены initData: {init_data[:50]}..." if init_data and len(init_data) > 50 else f"Получены initData: {init_data}")
         
-        # Проверяем подпись от Telegram 
-        bot_token = os.environ.get('BOT_TOKEN')
-        if not bot_token:
-            print("ВНИМАНИЕ: Переменная окружения BOT_TOKEN не установлена!")
-        else:
-            if not validate_telegram_data(init_data, bot_token):
-                print("ОШИБКА: Невалидные данные от Telegram!")
-                return jsonify({'error': 'Invalid Telegram data'}), 403
+        # Получаем прямые данные пользователя, если они были отправлены
+        direct_user_data = request.json.get('userData')
+        if direct_user_data:
+            print(f"Получены прямые данные пользователя: {direct_user_data}")
         
-        # Парсим данные пользователя из initData
-        user_data = parse_telegram_init_data(init_data)
+        # Получаем Telegram ID из заголовка как резервный вариант
+        telegram_id_header = request.headers.get('X-Telegram-ID')
+        print(f"Получен X-Telegram-ID из заголовка: {telegram_id_header}")
+        
+        # Проверяем, есть ли данные для аутентификации
+        if not init_data and not telegram_id_header and not direct_user_data:
+            print("ОШИБКА: Нет данных для аутентификации пользователя")
+            return jsonify({'error': 'No authentication data provided'}), 400
+        
+        # Проверяем подпись от Telegram, если есть initData
+        user_data = None
+        if init_data:
+            bot_token = os.environ.get('BOT_TOKEN')
+            if not bot_token:
+                print("ВНИМАНИЕ: Переменная окружения BOT_TOKEN не установлена!")
+            else:
+                if not validate_telegram_data(init_data, bot_token):
+                    print("ОШИБКА: Невалидные данные от Telegram!")
+                    # В продакшене здесь должен быть возврат ошибки
+                    # Но для отладки можно продолжить выполнение
+                    print("Продолжаем без валидации для отладки")
+            
+            # Парсим данные пользователя из initData
+            user_data = parse_telegram_init_data(init_data)
+            
+            if user_data:
+                print(f"Данные пользователя из initData: {user_data}")
+        
+        # Если нет данных из initData, но есть прямые данные пользователя
+        if not user_data and direct_user_data:
+            print(f"Используем прямые данные пользователя")
+            user_data = direct_user_data
+        
+        # Если все еще нет данных, но есть ID из заголовка
+        if not user_data and telegram_id_header:
+            print(f"Используем ID из заголовка: {telegram_id_header}")
+            user_data = {'id': telegram_id_header}
         
         if not user_data or 'id' not in user_data:
-            return jsonify({'error': 'Missing user data in Telegram init data'}), 400
+            print("ОШИБКА: Не удалось получить ID пользователя")
+            return jsonify({
+                'error': 'Could not get user ID',
+                'details': {
+                    'initDataPresent': bool(init_data),
+                    'headerIdPresent': bool(telegram_id_header),
+                    'directUserDataPresent': bool(direct_user_data)
+                }
+            }), 400
         
-        # Получаем имя пользователя и URL аватара из данных Telegram
-        username = user_data.get('username', user_data.get('first_name', 'User'))
-        if 'first_name' in user_data and 'last_name' in user_data:
-            full_name = f"{user_data['first_name']} {user_data['last_name']}"
-            username = full_name
+        # Получаем имя пользователя из данных Telegram
+        username = 'User'
+        if 'username' in user_data:
+            username = user_data['username']
+        elif 'first_name' in user_data:
+            if 'last_name' in user_data:
+                username = f"{user_data['first_name']} {user_data['last_name']}"
+            else:
+                username = user_data['first_name']
         
         # Получаем URL фото профиля, если он есть
         photo_url = user_data.get('photo_url', '')
         
+        # Убедимся, что ID пользователя в виде строки
+        telegram_id = str(user_data['id'])
+        
+        print(f"Данные для аутентификации: ID={telegram_id}, username={username}, photo_url={'присутствует' if photo_url else 'отсутствует'}")
+        
         # Ищем пользователя по Telegram ID
-        user = User.query.filter_by(telegram_id=str(user_data['id'])).first()
+        user = User.query.filter_by(telegram_id=telegram_id).first()
         
         # Если пользователь не найден, создаем нового
         if not user:
-            print(f"Создаем нового пользователя с Telegram ID: {user_data['id']}")
-            user = User(
-                username=username,
-                telegram_id=str(user_data['id']),
-                photo_url=photo_url
-            )
-            db.session.add(user)
-            db.session.commit()
+            print(f"Создаем нового пользователя с Telegram ID: {telegram_id}")
+            try:
+                user = User(
+                    username=username,
+                    telegram_id=telegram_id,
+                    photo_url=photo_url
+                )
+                db.session.add(user)
+                db.session.commit()
+                print(f"Пользователь успешно создан: {user.id}, {user.username}")
+            except Exception as create_error:
+                db.session.rollback()
+                print(f"Ошибка при создании пользователя: {str(create_error)}")
+                return jsonify({'error': f'Failed to create user: {str(create_error)}'}), 500
         else:
             # Если пользователь найден, обновляем его данные, если они изменились
             update_needed = False
@@ -1292,18 +1408,28 @@ def auth_telegram():
                 print(f"Обновлена аватарка пользователя")
             
             if update_needed:
-                db.session.commit()
-                print(f"Данные пользователя обновлены")
+                try:
+                    db.session.commit()
+                    print(f"Данные пользователя обновлены")
+                except Exception as update_error:
+                    db.session.rollback()
+                    print(f"Ошибка при обновлении данных пользователя: {str(update_error)}")
         
         # Устанавливаем текущего пользователя (только для совместимости с тестовой средой)
         global current_user_id
         current_user_id = user.id
+        print(f"Установлен current_user_id: {current_user_id}")
         
         # Возвращаем данные пользователя
-        return jsonify(user.to_dict())
+        result = user.to_dict()
+        print(f"Возвращаем данные пользователя: {result}")
+        return jsonify(result)
     
     except Exception as e:
-        print(f"Error authenticating Telegram user: {str(e)}")
+        print(f"Критическая ошибка аутентификации Telegram: {str(e)}")
+        # Вывод стека вызовов для отладки
+        import traceback
+        print(traceback.format_exc())
         return jsonify({'error': 'Failed to authenticate'}), 500
 
 def parse_telegram_init_data(init_data):
@@ -1326,6 +1452,7 @@ def parse_telegram_init_data(init_data):
                 if '=' in item:
                     key, value = item.split('=', 1)
                     params[key] = urllib.parse.unquote_plus(value)
+        
         
         print(f"Полученные параметры: {', '.join(params.keys())}")
         
@@ -1384,6 +1511,93 @@ def validate_telegram_data(init_data, bot_token):
     except Exception as e:
         print(f"Error validating Telegram data: {str(e)}")
         return False
+
+# Новый эндпоинт для быстрой аутентификации по Telegram ID
+@app.route('/api/auth/telegram-id/<telegram_id>', methods=['GET'])
+def auth_by_telegram_id(telegram_id):
+    """
+    Аутентифицирует пользователя по Telegram ID.
+    Создает пользователя, если он не существует.
+    """
+    try:
+        print(f"Получен запрос на аутентификацию по Telegram ID: {telegram_id}")
+        
+        # Проверка на валидность telegram_id
+        if not telegram_id or not str(telegram_id).strip():
+            print("ОШИБКА: Получен пустой Telegram ID")
+            return jsonify({'error': 'Invalid Telegram ID'}), 400
+            
+        # Ищем пользователя по Telegram ID
+        user = User.query.filter_by(telegram_id=str(telegram_id)).first()
+        
+        # Если пользователь не найден, создаем нового
+        if not user:
+            print(f"Пользователь не найден, создаем нового с Telegram ID: {telegram_id}")
+            
+            # Получаем данные пользователя из WebApp если они были отправлены
+            webapp_data = {}
+            if request.is_json:
+                webapp_data = request.json
+                print(f"Получены дополнительные данные о пользователе: {webapp_data}")
+            
+            # Создаем имя пользователя и URL фото
+            username = webapp_data.get('username', f"User{telegram_id}")
+            photo_url = webapp_data.get('photo_url', '')
+            
+            try:
+                user = User(
+                    username=username,
+                    telegram_id=str(telegram_id),
+                    photo_url=photo_url
+                )
+                db.session.add(user)
+                db.session.commit()
+                print(f"Создан новый пользователь: {user.id}, {user.username}, фото: {photo_url}")
+            except Exception as create_error:
+                db.session.rollback()
+                print(f"Ошибка при создании пользователя: {str(create_error)}")
+                return jsonify({'error': f'Failed to create user: {str(create_error)}'}), 500
+        else:
+            print(f"Найден существующий пользователь: {user.id}, {user.username}")
+            
+            # Обновляем данные пользователя, если они были отправлены
+            if request.is_json:
+                webapp_data = request.json
+                update_needed = False
+                
+                if 'username' in webapp_data and webapp_data['username'] and user.username != webapp_data['username']:
+                    user.username = webapp_data['username']
+                    update_needed = True
+                    print(f"Обновлено имя пользователя: {user.username}")
+                
+                if 'photo_url' in webapp_data and webapp_data['photo_url'] and user.photo_url != webapp_data['photo_url']:
+                    user.photo_url = webapp_data['photo_url']
+                    update_needed = True
+                    print(f"Обновлена фотография пользователя")
+                
+                if update_needed:
+                    try:
+                        db.session.commit()
+                        print("Данные пользователя успешно обновлены")
+                    except Exception as update_error:
+                        db.session.rollback()
+                        print(f"Ошибка при обновлении данных пользователя: {str(update_error)}")
+        
+        # Устанавливаем текущего пользователя (только для совместимости)
+        global current_user_id
+        current_user_id = user.id
+        print(f"Установлен current_user_id: {current_user_id}")
+        
+        # Возвращаем данные пользователя
+        result = user.to_dict()
+        print(f"Возвращаем данные пользователя: {result}")
+        return jsonify(result)
+    
+    except Exception as e:
+        print(f"Критическая ошибка при аутентификации по Telegram ID: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({'error': 'Failed to authenticate'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5001)

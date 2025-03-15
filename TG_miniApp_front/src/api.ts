@@ -33,20 +33,66 @@ export const userApi = {
     try {
       // Получаем initData из Telegram Web App
       const initData = WebApp.initData;
+      console.log('Отправка initData на сервер:', initData ? `${initData.substring(0, 50)}...` : 'пусто');
+      
+      // Получаем данные пользователя напрямую из WebApp
+      const telegramUser = WebApp.initDataUnsafe.user;
+      console.log('WebApp.initDataUnsafe:', JSON.stringify(WebApp.initDataUnsafe, null, 2));
+      console.log('User из WebApp:', telegramUser ? JSON.stringify(telegramUser, null, 2) : 'user недоступен');
+      
+      // Проверяем, есть ли хоть какие-то данные для аутентификации
+      if (!initData && !telegramUser) {
+        console.error('ОШИБКА: Нет данных инициализации от Telegram и нет прямого доступа к пользователю');
+        throw new Error('No authentication data from Telegram');
+      }
+      
+      // Формируем объект для отправки на сервер
+      const authData: any = { initData };
+      
+      // Если есть прямой доступ к пользователю, добавляем его данные
+      if (telegramUser) {
+        authData.userData = telegramUser;
+      }
       
       // Отправляем данные на сервер для проверки и аутентификации
       const response = await fetch(`${API_URL}/auth/telegram`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          // Если есть ID пользователя, добавляем его в заголовок
+          ...(telegramUser && telegramUser.id ? {'X-Telegram-ID': telegramUser.id.toString()} : {})
         },
-        body: JSON.stringify({ initData })
+        body: JSON.stringify(authData)
       });
       
-      if (!response.ok) throw new Error('Failed to authenticate with Telegram');
-      return await response.json();
+      // Проверяем ответ от сервера
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Ошибка аутентификации: ${response.status} ${response.statusText}`, errorText);
+        
+        // Если первая попытка не удалась и у нас есть ID пользователя, попробуем использовать запасной метод
+        if (telegramUser && telegramUser.id) {
+          console.log('Первая попытка аутентификации не удалась, пробуем через запасной метод authWithTelegramId');
+          return userApi.authWithTelegramId(telegramUser.id);
+        }
+        
+        throw new Error(`Failed to authenticate with Telegram: ${response.status} ${response.statusText}`);
+      }
+      
+      const userData = await response.json();
+      console.log('Данные пользователя получены:', userData);
+      return userData;
     } catch (error) {
-      return handleApiError(error);
+      console.error('Ошибка в authWithTelegram:', error);
+      
+      // Попытка восстановления через getCurrentUser если все методы аутентификации не сработали
+      try {
+        console.log('Пробуем получить пользователя через getCurrentUser после сбоя аутентификации');
+        return await userApi.getCurrentUser();
+      } catch (fallbackError) {
+        console.error('Запасной метод тоже не сработал:', fallbackError);
+        return handleApiError(error);
+      }
     }
   },
   
@@ -61,12 +107,28 @@ export const userApi = {
       // Если есть данные пользователя из Telegram, добавляем его ID в заголовок
       if (telegramUser && telegramUser.id) {
         headers['X-Telegram-ID'] = telegramUser.id.toString();
+        console.log('Добавлен заголовок X-Telegram-ID:', telegramUser.id);
+        
+        // Для отладки выводим всю доступную информацию о пользователе
+        console.log('Данные пользователя из WebApp.initDataUnsafe:', JSON.stringify(telegramUser, null, 2));
+      } else {
+        console.log('Нет данных пользователя в WebApp.initDataUnsafe.user');
       }
       
+      console.log('Отправка запроса на /api/users/me с заголовками:', headers);
       const response = await fetch(`${API_URL}/users/me`, { headers });
-      if (!response.ok) throw new Error('Failed to fetch current user');
-      return await response.json();
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Ошибка получения пользователя: ${response.status} ${response.statusText}`, errorText);
+        throw new Error(`Failed to fetch current user: ${response.statusText}`);
+      }
+      
+      const userData = await response.json();
+      console.log('Получены данные пользователя:', userData);
+      return userData;
     } catch (error) {
+      console.error('Ошибка в getCurrentUser:', error);
       return handleApiError(error);
     }
   },
@@ -196,6 +258,28 @@ export const userApi = {
       if (!response.ok) throw new Error('Failed to set theme preference');
       return await response.json();
     } catch (error) {
+      return handleApiError(error);
+    }
+  },
+  
+  // Добавляем метод для быстрой аутентификации по Telegram ID
+  authWithTelegramId: async (telegramId: string | number): Promise<User> => {
+    try {
+      console.log(`Быстрая аутентификация по Telegram ID: ${telegramId}`);
+      
+      const response = await fetch(`${API_URL}/auth/telegram-id/${telegramId}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Ошибка аутентификации по Telegram ID: ${response.status}`, errorText);
+        throw new Error(`Failed to authenticate with Telegram ID: ${response.status}`);
+      }
+      
+      const userData = await response.json();
+      console.log('Данные пользователя получены:', userData);
+      return userData;
+    } catch (error) {
+      console.error('Ошибка в authWithTelegramId:', error);
       return handleApiError(error);
     }
   }

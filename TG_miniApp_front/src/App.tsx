@@ -17,34 +17,62 @@ function App() {
       try {
         console.log('Инициализация Telegram Web App...');
         
-        // Проверяем наличие initData от Telegram
+        // Проверяем наличие пользователя в WebApp.initDataUnsafe
+        const telegramUser = WebApp.initDataUnsafe.user;
+        console.log('Пользователь из WebApp:', telegramUser);
+        
+        let userData = null;
+        
+        // Способ 1: Через полные данные initData
         if (WebApp.initData) {
-          console.log('Telegram initData найден, выполняем аутентификацию...');
+          console.log('Способ 1: Telegram initData найден, выполняем аутентификацию...');
           
           try {
             // Аутентифицируем пользователя с данными из Telegram
-            const userData = await userApi.authWithTelegram();
-            console.log('Аутентификация успешна:', userData.username);
-            
-            // Устанавливаем тему в соответствии с настройками пользователя
-            if (userData.themePreference) {
-              const isDark = userData.themePreference === 'dark';
-              if (isDark) {
-                document.documentElement.classList.add('dark-theme');
-              } else {
-                document.documentElement.classList.remove('dark-theme');
-              }
-            }
-            
-            // Уведомляем Telegram о готовности приложения
-            WebApp.ready();
-            WebApp.expand();
+            userData = await userApi.authWithTelegram();
+            console.log('Аутентификация успешна:', userData);
           } catch (error) {
-            console.error('Ошибка аутентификации через Telegram:', error);
+            console.error('Ошибка аутентификации через initData:', error);
           }
-        } else {
-          console.log('Telegram initData не найден, работаем в режиме отладки');
         }
+        
+        // Способ 2: Если первый способ не сработал, попробуем через ID из initDataUnsafe
+        if (!userData && telegramUser && telegramUser.id) {
+          console.log('Способ 2: Используем Telegram ID из initDataUnsafe:', telegramUser.id);
+          
+          try {
+            userData = await userApi.authWithTelegramId(telegramUser.id);
+            console.log('Аутентификация через ID успешна:', userData);
+          } catch (error) {
+            console.error('Ошибка аутентификации через Telegram ID:', error);
+          }
+        }
+        
+        // Способ 3: Если предыдущие способы не сработали, используем getCurrentUser
+        if (!userData) {
+          console.log('Способ 3: Используем getCurrentUser...');
+          
+          try {
+            userData = await userApi.getCurrentUser();
+            console.log('Получены данные пользователя через getCurrentUser:', userData);
+          } catch (error) {
+            console.error('Ошибка получения данных пользователя через getCurrentUser:', error);
+          }
+        }
+        
+        // Если удалось получить пользователя, настраиваем тему
+        if (userData && userData.themePreference) {
+          const isDark = userData.themePreference === 'dark';
+          if (isDark) {
+            document.documentElement.classList.add('dark-theme');
+          } else {
+            document.documentElement.classList.remove('dark-theme');
+          }
+        }
+            
+        // Уведомляем Telegram о готовности приложения
+        WebApp.ready();
+        WebApp.expand();
         
         setIsInitialized(true);
       } catch (error) {
