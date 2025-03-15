@@ -20,24 +20,35 @@ const Profile = () => {
   const fetchUserData = useCallback(async () => {
     try {
       setLoading(true);
+      console.log("Начинаем загрузку данных пользователя...");
       
       // Проверяем доступность Telegram WebApp
       if (typeof WebApp !== 'undefined' && WebApp.initData) {
         console.log("Пытаемся авторизоваться через Telegram WebApp...");
+        console.log("WebApp данные доступны:", !!WebApp.initData);
+        console.log("WebApp.initDataUnsafe доступен:", !!WebApp.initDataUnsafe);
         
         try {
           // Выводим информацию о пользователе из Telegram (для отладки)
           if (WebApp.initDataUnsafe && WebApp.initDataUnsafe.user) {
             const tgUser = WebApp.initDataUnsafe.user;
-            console.log("Данные пользователя из Telegram:", 
-              `ID:${tgUser.id}, Username:${tgUser.username}, FirstName:${tgUser.first_name}`);
+            console.log("Данные пользователя из Telegram:", {
+              id: tgUser.id, 
+              username: tgUser.username, 
+              firstName: tgUser.first_name,
+              lastName: tgUser.last_name,
+              photoUrl: tgUser.photo_url,
+              languageCode: tgUser.language_code
+            });
           } else {
             console.log("initDataUnsafe.user недоступен");
           }
           
-          // Аутентификация через Telegram
+          // Аутентификация через Telegram - всегда используем этот метод, 
+          // чтобы получить актуальные данные пользователя
+          console.log("Отправляем запрос на авторизацию через Telegram API...");
           const userData = await userApi.authWithTelegram();
-          console.log("Успешная аутентификация через Telegram");
+          console.log("Успешная аутентификация через Telegram", userData);
           setUser(userData);
           setError(null);
           return;
@@ -50,8 +61,9 @@ const Profile = () => {
       }
       
       // Запасной вариант - получение текущего пользователя через обычный API
+      console.log("Используем запасной метод получения данных пользователя...");
       const userData = await userApi.getCurrentUser();
-      console.log("Получены данные пользователя через обычный API");
+      console.log("Получены данные пользователя через обычный API", userData);
       setUser(userData);
       setError(null);
     } catch (err) {
@@ -79,17 +91,30 @@ const Profile = () => {
 
   // Загрузка данных только при первом рендере компонента
   useEffect(() => {
-    // Загружаем данные только при первом рендере
-    if (isFirstRender.current) {
-      fetchUserData().then(() => {
-        isFirstRender.current = false;
-      });
-    }
+    // Всегда обновляем данные при открытии профиля
+    fetchUserData().then(() => {
+      isFirstRender.current = false;
+    });
+    
+    // Добавляем обработчик для обновления данных при открытии вкладки
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Вкладка стала активной, обновляем данные...');
+        fetchUserData();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Удаляем слушатель при размонтировании
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [fetchUserData]);
 
   // Загрузка истории игр после получения данных пользователя
   useEffect(() => {
-    if (user && !isFirstRender.current) {
+    if (user) {
       fetchGameHistory();
     }
   }, [user, fetchGameHistory]);
@@ -102,6 +127,13 @@ const Profile = () => {
 
   // Функция для принудительного обновления данных
   const handleRefresh = () => {
+    console.log("Ручное обновление данных пользователя...");
+    
+    // Сначала сбрасываем текущие данные
+    setUser(null);
+    setGameHistory([]);
+    
+    // Затем заново загружаем все
     fetchUserData().then(() => {
       fetchGameHistory();
     });

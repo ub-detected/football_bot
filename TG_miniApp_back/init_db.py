@@ -25,21 +25,8 @@ def initialize_database():
         # Создаем таблицы, если они еще не существуют
         db.create_all()
         
-        # Добавляем тестовые данные, только если база данных пуста или была сброшена
-        if reset_db or User.query.count() == 0:
-            print("Добавление тестовых пользователей в базу данных...")
-            users = [
-                User(username="Alex228", photo_url="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150", score=2500, games_played=120, games_won=45),
-                User(username="Maria", photo_url="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150", score=2300, games_played=100, games_won=40),
-                User(username="John", photo_url="https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=150", score=2100, games_played=90, games_won=35),
-                User(username="Sarah", photo_url="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150", score=2000, games_played=80, games_won=30),
-                User(username="Mike", photo_url="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150", score=1900, games_played=70, games_won=25),
-            ]
-            db.session.add_all(users)
-            db.session.commit()
-            print(f"Добавлено {len(users)} тестовых пользователей.")
-        elif reset_db:
-            print("База данных была очищена, но пользователи не были добавлены, потому что переменная окружения INIT_TEST_DATA не установлена.")
+        # Тестовые пользователи больше не добавляются
+        print("Инициализация без тестовых пользователей (по запросу клиента)")
       
         tables = ["users", "game_rooms", "game_history", "game_room_players", "team_a_players", "team_b_players", "complaints"]
         for table in tables:
