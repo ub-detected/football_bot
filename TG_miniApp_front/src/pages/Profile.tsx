@@ -21,20 +21,8 @@ const Profile = () => {
     try {
       setLoading(true);
       
-      // Если есть инициализационные данные от Telegram, пробуем аутентифицироваться
-      if (WebApp.initData) {
-        try {
-          const userData = await userApi.authWithTelegram();
-          setUser(userData);
-          setError(null);
-          return;
-        } catch (authError) {
-          console.error('Ошибка аутентификации через Telegram:', authError);
-          // Если аутентификация через Telegram не удалась, пробуем обычный метод
-        }
-      }
-      
-      // Запасной вариант - получение текущего пользователя
+      // Просто получаем текущего пользователя, так как инициализация Telegram
+      // уже выполнена в компоненте App
       const userData = await userApi.getCurrentUser();
       setUser(userData);
       setError(null);

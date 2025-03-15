@@ -12,11 +12,18 @@ import hashlib
 import hmac
 import json
 import time
+import urllib.parse
 
 app = Flask(__name__)
 
-CORS(app, resources={r"/api/*": {"origins": "*"}})
-
+# Настройки CORS для работы с Telegram
+CORS(app, resources={
+    r"/api/*": {
+        "origins": ["https://telegram.org", "https://*.telegram.org", "*"],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization", "X-Telegram-ID"]
+    }
+})
 
 database_url = os.environ.get('DATABASE_URL', 'postgresql://postgres:footbot777Azat@db/mydb')
 print(f"Подключение к базе данных по адресу: {database_url}")
@@ -1194,8 +1201,13 @@ def get_locations():
 @app.after_request
 def add_cors_headers(response):
     response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Telegram-ID')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    
+    # Добавляем заголовки для работы с Telegram WebApp
+    response.headers.add('X-Frame-Options', 'ALLOW-FROM https://telegram.org')
+    response.headers.add('Content-Security-Policy', "frame-ancestors 'self' https://telegram.org https://*.telegram.org")
+    
     return response
 
 # Обработка preflight запросов OPTIONS
@@ -1240,21 +1252,48 @@ def auth_telegram():
         # Парсим данные пользователя из initData
         user_data = parse_telegram_init_data(init_data)
         
-        if not user_data or 'id' not in user_data or 'username' not in user_data:
+        if not user_data or 'id' not in user_data:
             return jsonify({'error': 'Missing user data in Telegram init data'}), 400
+        
+        # Получаем имя пользователя и URL аватара из данных Telegram
+        username = user_data.get('username', user_data.get('first_name', 'User'))
+        if 'first_name' in user_data and 'last_name' in user_data:
+            full_name = f"{user_data['first_name']} {user_data['last_name']}"
+            username = full_name
+        
+        # Получаем URL фото профиля, если он есть
+        photo_url = user_data.get('photo_url', '')
         
         # Ищем пользователя по Telegram ID
         user = User.query.filter_by(telegram_id=str(user_data['id'])).first()
         
         # Если пользователь не найден, создаем нового
         if not user:
+            print(f"Создаем нового пользователя с Telegram ID: {user_data['id']}")
             user = User(
-                username=user_data['username'],
+                username=username,
                 telegram_id=str(user_data['id']),
-                photo_url=user_data.get('photo_url', '')
+                photo_url=photo_url
             )
             db.session.add(user)
             db.session.commit()
+        else:
+            # Если пользователь найден, обновляем его данные, если они изменились
+            update_needed = False
+            
+            if user.username != username:
+                user.username = username
+                update_needed = True
+                print(f"Обновлено имя пользователя: {username}")
+            
+            if photo_url and user.photo_url != photo_url:
+                user.photo_url = photo_url
+                update_needed = True
+                print(f"Обновлена аватарка пользователя")
+            
+            if update_needed:
+                db.session.commit()
+                print(f"Данные пользователя обновлены")
         
         # Устанавливаем текущего пользователя (только для совместимости с тестовой средой)
         global current_user_id
@@ -1276,16 +1315,37 @@ def parse_telegram_init_data(init_data):
         if not init_data:
             return None
         
-        params = {}
-        for item in init_data.split('&'):
-            if '=' in item:
-                key, value = item.split('=', 1)
-                params[key] = value
+        # Декодируем URL-encoded строку
+        try:
+            # Сначала пробуем разобрать строку как URL-кодированную
+            params = dict(urllib.parse.parse_qsl(init_data))
+        except:
+            # Если это не удалось, пробуем простой способ разделения по &
+            params = {}
+            for item in init_data.split('&'):
+                if '=' in item:
+                    key, value = item.split('=', 1)
+                    params[key] = urllib.parse.unquote_plus(value)
+        
+        print(f"Полученные параметры: {', '.join(params.keys())}")
         
         # Извлекаем данные пользователя
         if 'user' in params:
-            user_data = json.loads(params['user'])
-            return user_data
+            try:
+                # Пробуем декодировать JSON-строку
+                user_json = urllib.parse.unquote_plus(params['user'])
+                user_data = json.loads(user_json)
+                print(f"Данные пользователя: {user_data.get('id')}, {user_data.get('first_name')} {user_data.get('last_name')}")
+                return user_data
+            except json.JSONDecodeError as e:
+                print(f"Ошибка декодирования JSON: {str(e)}")
+                print(f"Содержимое 'user': {params['user']}")
+        else:
+            print("Поле 'user' не найдено в initData")
+            
+            # Для отладки выводим все параметры
+            for key, value in params.items():
+                print(f"- {key}: {value[:50]}..." if len(str(value)) > 50 else f"- {key}: {value}")
         
         return None
     except Exception as e:
