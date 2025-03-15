@@ -1,5 +1,8 @@
 import { User, GameRoom, GameHistory } from './types';
 
+// Добавляем импорт Telegram Web App SDK
+import WebApp from '@twa-dev/sdk';
+
 // Используем динамический URL в зависимости от окружения
 // В production используем относительный путь, который будет работать через Nginx
 export const API_URL = window.location.origin + '/api';
@@ -25,10 +28,42 @@ export interface PaginatedResponse<T> {
 
 // API для работы с пользователями
 export const userApi = {
+  // Аутентификация через Telegram
+  authWithTelegram: async (): Promise<User> => {
+    try {
+      // Получаем initData из Telegram Web App
+      const initData = WebApp.initData;
+      
+      // Отправляем данные на сервер для проверки и аутентификации
+      const response = await fetch(`${API_URL}/auth/telegram`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ initData })
+      });
+      
+      if (!response.ok) throw new Error('Failed to authenticate with Telegram');
+      return await response.json();
+    } catch (error) {
+      return handleApiError(error);
+    }
+  },
+  
   // Получить текущего пользователя
   getCurrentUser: async (): Promise<User> => {
     try {
-      const response = await fetch(`${API_URL}/users/me`);
+      // Получаем данные пользователя из Telegram
+      const telegramUser = WebApp.initDataUnsafe.user;
+      
+      const headers: HeadersInit = {};
+      
+      // Если есть данные пользователя из Telegram, добавляем его ID в заголовок
+      if (telegramUser && telegramUser.id) {
+        headers['X-Telegram-ID'] = telegramUser.id.toString();
+      }
+      
+      const response = await fetch(`${API_URL}/users/me`, { headers });
       if (!response.ok) throw new Error('Failed to fetch current user');
       return await response.json();
     } catch (error) {
@@ -141,11 +176,21 @@ export const userApi = {
   // Установить предпочтения темы пользователя
   setThemePreference: async (theme: 'light' | 'dark'): Promise<User> => {
     try {
+      // Получаем данные пользователя из Telegram
+      const telegramUser = WebApp.initDataUnsafe.user;
+      
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json'
+      };
+      
+      // Если есть данные пользователя из Telegram, добавляем его ID в заголовок
+      if (telegramUser && telegramUser.id) {
+        headers['X-Telegram-ID'] = telegramUser.id.toString();
+      }
+      
       const response = await fetch(`${API_URL}/users/theme-preference`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({ theme })
       });
       if (!response.ok) throw new Error('Failed to set theme preference');

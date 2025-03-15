@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Trophy, Award, Star, Users, X, ChevronDown, ChevronUp, Moon, Sun } from 'lucide-react';
+import { Trophy, Award, Star, Moon, Sun } from 'lucide-react';
 import { userApi } from '../api';
 import { User, GameHistory } from '../types';
 import GameHistoryList from '../components/GameHistoryList';
 import ThemeSwitch from '../components/ThemeSwitch';
+import WebApp from '@twa-dev/sdk';
 
 const Profile = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -12,11 +13,6 @@ const Profile = () => {
   const [gameHistory, setGameHistory] = useState<GameHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   
-  // Состояния для тестового переключения пользователей
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [showUserSelector, setShowUserSelector] = useState(false);
-  const [userSelectorLoading, setUserSelectorLoading] = useState(false);
-
   // Предотвращаем постоянные обновления
   const isFirstRender = useRef(true);
 
@@ -24,6 +20,21 @@ const Profile = () => {
   const fetchUserData = useCallback(async () => {
     try {
       setLoading(true);
+      
+      // Если есть инициализационные данные от Telegram, пробуем аутентифицироваться
+      if (WebApp.initData) {
+        try {
+          const userData = await userApi.authWithTelegram();
+          setUser(userData);
+          setError(null);
+          return;
+        } catch (authError) {
+          console.error('Ошибка аутентификации через Telegram:', authError);
+          // Если аутентификация через Telegram не удалась, пробуем обычный метод
+        }
+      }
+      
+      // Запасной вариант - получение текущего пользователя
       const userData = await userApi.getCurrentUser();
       setUser(userData);
       setError(null);
@@ -65,45 +76,6 @@ const Profile = () => {
       fetchGameHistory();
     }
   }, [user, fetchGameHistory]);
-  
-  // Загрузка всех пользователей для тестового переключения
-  const loadAllUsers = async () => {
-    if (allUsers.length > 0) {
-      setShowUserSelector(!showUserSelector);
-      return;
-    }
-    
-    try {
-      setUserSelectorLoading(true);
-      const users = await userApi.getAllUsers();
-      setAllUsers(users);
-      setShowUserSelector(true);
-    } catch (err) {
-      // Просто игнорируем ошибку
-    } finally {
-      setUserSelectorLoading(false);
-    }
-  };
-  
-  // Переключение на другого пользователя
-  const switchToUser = async (userId: number) => {
-    try {
-      setLoading(true);
-      const userData = await userApi.setCurrentUser(userId);
-      setUser(userData);
-      setShowUserSelector(false);
-      
-      // Обновляем историю игр для нового пользователя
-      setTimeout(() => {
-        fetchGameHistory();
-      }, 500);
-    } catch (err) {
-      // Обработка ошибки без вывода в консоль
-      setError('Не удалось переключить пользователя. Пожалуйста, попробуйте позже.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Вычисляем процент побед
   const calculateWinRate = () => {
@@ -153,57 +125,7 @@ const Profile = () => {
                 </svg>
                 Обновить
               </button>
-              
-              {/* Кнопка для тестового переключения пользователей */}
-              <button 
-                onClick={loadAllUsers}
-                className="flex items-center gap-1 bg-white/20 text-white px-3 py-1 rounded-full text-sm"
-              >
-                <Users size={16} />
-                Сменить пользователя
-                {showUserSelector ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              </button>
             </div>
-          </div>
-        )}
-        
-        {/* Селектор пользователей для тестирования */}
-        {showUserSelector && (
-          <div className="mt-4 bg-white/10 backdrop-blur-sm rounded-xl p-3 animate-fade-in">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-white/90 font-medium">Выберите пользователя</h3>
-              <button onClick={() => setShowUserSelector(false)} className="text-white/70">
-                <X size={18} />
-              </button>
-            </div>
-            
-            {userSelectorLoading ? (
-              <div className="flex justify-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-white"></div>
-              </div>
-            ) : (
-              <div className="max-h-48 overflow-y-auto">
-                {allUsers.map(u => (
-                  <button
-                    key={u.id}
-                    onClick={() => switchToUser(u.id)}
-                    className={`flex items-center gap-2 w-full text-left p-2 rounded-lg ${
-                      user?.id === u.id ? 'bg-white/30' : 'hover:bg-white/10'
-                    }`}
-                  >
-                    <img 
-                      src={u.photoUrl} 
-                      alt={u.username} 
-                      className="w-8 h-8 rounded-full object-cover"
-                    />
-                    <div>
-                      <p className="text-white font-medium">{u.username}</p>
-                      <p className="text-white/70 text-xs">Счет: {u.score}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         )}
       </div>

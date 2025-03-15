@@ -8,12 +8,16 @@ import random
 import re
 from locations import search_locations, get_all_locations
 from sqlalchemy import or_, text
+import hashlib
+import hmac
+import json
+import time
 
 app = Flask(__name__)
-# Обновлено: разрешаем все источники для продакшн-среды или findyoursport.ru в продакшн-среде
+
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-# Конфигурация базы данных
+
 database_url = os.environ.get('DATABASE_URL', 'postgresql://postgres:footbot777Azat@db/mydb')
 print(f"Подключение к базе данных по адресу: {database_url}")
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
@@ -25,8 +29,9 @@ migrate = Migrate(app, db)
 # Глобальная переменная для хранения ID текущего пользователя (для тестирования)
 current_user_id = None
 
-# Эндпоинт для тестирования - установка текущего пользователя
-# ВАЖНО: Удалить этот эндпоинт перед релизом!
+# DEPRECATED: Эти эндпоинты использовались только для тестирования
+# Они оставлены как комментарии на случай необходимости отладки без Telegram
+"""
 @app.route('/api/users/set-current/<int:user_id>', methods=['POST'])
 def set_current_user(user_id):
     global current_user_id
@@ -37,8 +42,9 @@ def set_current_user(user_id):
     result = user.to_dict()
     print(f"Current user set to: {result}")
     return jsonify(result)
+"""
 
-# Модели базы данных
+
 class User(db.Model):
     __tablename__ = 'users'
     
@@ -241,8 +247,19 @@ def get_user(user_id):
 
 @app.route('/api/users/me', methods=['GET'])
 def get_current_user():
-    # В реальном приложении здесь должна быть аутентификация через Telegram
-    # Для тестирования используем глобальную переменную current_user_id
+    # Проверяем, передан ли Telegram-ID в заголовке
+    telegram_id = request.headers.get('X-Telegram-ID')
+    
+    if telegram_id:
+        # Ищем пользователя по Telegram ID
+        user = User.query.filter_by(telegram_id=telegram_id).first()
+        if user:
+            # Устанавливаем current_user_id для совместимости с другими частями кода
+            global current_user_id
+            current_user_id = user.id
+            return jsonify(user.to_dict())
+    
+    # Если нет Telegram ID или пользователь не найден, проверяем current_user_id (для тестирования и отладки)
     if not current_user_id:
         # Если current_user_id не установлен, берем первого пользователя
         user = User.query.first()
@@ -535,17 +552,29 @@ def start_team_selection(room_id):
 def set_theme_preference():
     # Получаем данные запроса
     data = request.json
-    theme = data.get('theme')
+    if not data or 'theme' not in data:
+        return jsonify({'error': 'Missing theme parameter'}), 400
     
-    if not theme or theme not in ['light', 'dark']:
-        return jsonify({'error': 'Неверное значение для темы. Допустимые значения: "light", "dark"'}), 400
+    theme = data['theme']
+    if theme not in ['light', 'dark']:
+        return jsonify({'error': 'Invalid theme value, must be "light" or "dark"'}), 400
     
-    # Получаем текущего пользователя
-    global current_user_id
-    if not current_user_id:
-        return jsonify({'error': 'Пользователь не авторизован'}), 401
+    # Проверяем Telegram ID из заголовка запроса
+    telegram_id = request.headers.get('X-Telegram-ID')
+    user = None
     
-    user = User.query.get_or_404(current_user_id)
+    if telegram_id:
+        # Ищем пользователя по Telegram ID
+        user = User.query.filter_by(telegram_id=telegram_id).first()
+    
+    # Если пользователь не найден по Telegram ID, используем текущего пользователя
+    if not user and current_user_id:
+        user = User.query.get(current_user_id)
+    
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # Устанавливаем новое значение темы
     user.theme_preference = theme
     db.session.commit()
     
@@ -1176,6 +1205,7 @@ def options_route(path):
     return '', 200
 
 # Новый эндпоинт для установки текущего пользователя
+"""
 @app.route('/api/users/switch/<int:user_id>', methods=['POST'])
 def switch_user(user_id):
     global current_user_id
@@ -1184,8 +1214,116 @@ def switch_user(user_id):
     user = User.query.get_or_404(user_id)
     current_user_id = user.id
     result = user.to_dict()
-    print(f"Current user switched to: {result}")
+    print(f"Switched to user: {result}")
     return jsonify(result)
+"""
+
+@app.route('/api/auth/telegram', methods=['POST'])
+def auth_telegram():
+    """
+    Аутентифицирует пользователя по данным из Telegram
+    Принимает initData от Telegram Web App и проверяет его валидность
+    """
+    try:
+        # Получаем данные инициализации от Telegram
+        init_data = request.json.get('initData', '')
+        
+        # Проверяем подпись от Telegram 
+        bot_token = os.environ.get('BOT_TOKEN')
+        if not bot_token:
+            print("ВНИМАНИЕ: Переменная окружения BOT_TOKEN не установлена!")
+        else:
+            if not validate_telegram_data(init_data, bot_token):
+                print("ОШИБКА: Невалидные данные от Telegram!")
+                return jsonify({'error': 'Invalid Telegram data'}), 403
+        
+        # Парсим данные пользователя из initData
+        user_data = parse_telegram_init_data(init_data)
+        
+        if not user_data or 'id' not in user_data or 'username' not in user_data:
+            return jsonify({'error': 'Missing user data in Telegram init data'}), 400
+        
+        # Ищем пользователя по Telegram ID
+        user = User.query.filter_by(telegram_id=str(user_data['id'])).first()
+        
+        # Если пользователь не найден, создаем нового
+        if not user:
+            user = User(
+                username=user_data['username'],
+                telegram_id=str(user_data['id']),
+                photo_url=user_data.get('photo_url', '')
+            )
+            db.session.add(user)
+            db.session.commit()
+        
+        # Устанавливаем текущего пользователя (только для совместимости с тестовой средой)
+        global current_user_id
+        current_user_id = user.id
+        
+        # Возвращаем данные пользователя
+        return jsonify(user.to_dict())
+    
+    except Exception as e:
+        print(f"Error authenticating Telegram user: {str(e)}")
+        return jsonify({'error': 'Failed to authenticate'}), 500
+
+def parse_telegram_init_data(init_data):
+    """
+    Парсит initData из Telegram Web App и возвращает информацию о пользователе
+    """
+    try:
+        # Преобразуем URL-encoded строку в словарь параметров
+        if not init_data:
+            return None
+        
+        params = {}
+        for item in init_data.split('&'):
+            if '=' in item:
+                key, value = item.split('=', 1)
+                params[key] = value
+        
+        # Извлекаем данные пользователя
+        if 'user' in params:
+            user_data = json.loads(params['user'])
+            return user_data
+        
+        return None
+    except Exception as e:
+        print(f"Error parsing Telegram init data: {str(e)}")
+        return None
+
+def validate_telegram_data(init_data, bot_token):
+    """
+    Проверяет валидность данных от Telegram с использованием HMAC-SHA-256
+    """
+    try:
+        # Извлекаем хеш и данные для проверки
+        data_check_string = init_data
+        
+        # Находим позицию hash в строке
+        hash_pos = data_check_string.find('&hash=')
+        if hash_pos == -1:
+            return False
+        
+        # Отделяем hash от остальных данных
+        received_hash = data_check_string[hash_pos + 6:]
+        data_check_string = data_check_string[:hash_pos]
+        
+        # Создаем secret key из bot token
+        secret_key = hashlib.sha256(bot_token.encode()).digest()
+        
+        # Проверяем подпись
+        computed_hash = hmac.new(
+            secret_key,
+            data_check_string.encode(),
+            hashlib.sha256
+        ).hexdigest()
+        
+        # Сравниваем хеши
+        return computed_hash == received_hash
+    except Exception as e:
+        print(f"Error validating Telegram data: {str(e)}")
+        return False
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5001)

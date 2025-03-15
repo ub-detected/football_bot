@@ -72,6 +72,7 @@ jobs:
               - FLASK_ENV=production
               - FLASK_DEBUG=0
               - DATABASE_URL=postgresql://postgres:footbot777Azat@db/mydb
+              - BOT_TOKEN=${BOT_TOKEN}
             depends_on:
               db:
                 condition: service_healthy
@@ -109,6 +110,14 @@ jobs:
             listen 80;
             server_name www.findyoursport.ru findyoursport.ru;
             
+            # Поддержка больших заголовков для Telegram WebApp
+            client_max_body_size 10M;
+            large_client_header_buffers 4 32k;
+            
+            # Дополнительные заголовки для работы с Telegram
+            add_header X-Frame-Options "ALLOW-FROM https://telegram.org";
+            add_header Content-Security-Policy "frame-ancestors 'self' https://telegram.org https://*.telegram.org";
+            
             location / {
                 proxy_pass http://frontend:5173;
                 proxy_http_version 1.1;
@@ -130,6 +139,11 @@ jobs:
                 proxy_set_header X-Real-IP $remote_addr;
                 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
                 proxy_set_header X-Forwarded-Proto $scheme;
+                
+                # Увеличиваем таймауты для API запросов
+                proxy_connect_timeout 300s;
+                proxy_send_timeout 300s;
+                proxy_read_timeout 300s;
             }
         }
         EOF
@@ -267,6 +281,8 @@ jobs:
           cat docker-compose.yml
           
           echo "Сборка и запуск контейнеров..."
+          # Экспортируем токен бота для использования в docker-compose
+          export BOT_TOKEN="${{ secrets.BOT_TOKEN }}"
           docker-compose build --no-cache
           docker-compose up -d
           

@@ -22,5 +22,8 @@ RUN ls -la && echo "----------" && ls -la /app
 COPY wait-for-db.sh /wait-for-db.sh
 RUN chmod +x /wait-for-db.sh
 
+# ВАЖНО: В production необходимо установить переменную окружения BOT_TOKEN
+# для валидации данных, приходящих из Telegram
+
 # Запуск скрипта ожидания и приложения
 CMD ["/bin/bash", "-c", "echo 'Starting app...' && /wait-for-db.sh db 5432 && echo 'DB is ready, initializing...' && python init_db.py && echo 'Starting server...' && python main.py --host=0.0.0.0 --port=5001"] 
