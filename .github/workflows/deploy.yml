@@ -11,6 +11,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Display project structure
+      run: |
+        ls -la
+        echo "-------------------------------"
+        find . -type f -name "wait-for-db.sh" -o -name "*.dockerfile" -o -name "Dockerfile*"
+        echo "-------------------------------"
+        find . -type d -name "TG_miniApp_*"
+
     - name: Generate Docker Compose file
       run: |
         cat > docker-compose.yml << 'EOF'
@@ -55,10 +63,8 @@ jobs:
             build: 
               context: .
               dockerfile: Dockerfile.backend
-            expose:
-              - "5001"
-            volumes:
-              - ./TG_miniApp_back:/app
+            ports:
+              - "5001:5001"
             environment:
               - FLASK_ENV=production
               - FLASK_DEBUG=0
@@ -74,11 +80,8 @@ jobs:
             build:
               context: .
               dockerfile: Dockerfile.frontend
-            expose:
-              - "5173"
-            volumes:
-              - ./TG_miniApp_front:/app
-              - /app/node_modules
+            ports:
+              - "5173:5173"
             depends_on:
               - backend
             environment:
@@ -148,6 +151,25 @@ jobs:
 
     - name: Create archive of project
       run: |
+        cat > wait-for-db.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        host="$1"
+        port="$2"
+        
+        echo "Waiting for PostgreSQL at $host:$port..."
+        
+        until nc -z -v -w30 "$host" "$port"; do
+          echo "PostgreSQL is not available yet - sleeping"
+          sleep 2
+        done
+        
+        echo "PostgreSQL is up - continuing"
+        EOF
+        
+        chmod +x wait-for-db.sh
+        
         tar -czvf project.tar.gz Dockerfile.backend Dockerfile.frontend TG_miniApp_back TG_miniApp_front wait-for-db.sh
 
     - name: Copy files to server
@@ -199,22 +221,67 @@ jobs:
           echo "Содержимое директории:"
           ls -la
           
+          echo "Проверка наличия всех необходимых файлов..."
+          if [ ! -f Dockerfile.backend ]; then echo "ОШИБКА: Dockerfile.backend не найден!"; exit 1; fi
+          if [ ! -f Dockerfile.frontend ]; then echo "ОШИБКА: Dockerfile.frontend не найден!"; exit 1; fi
+          if [ ! -f wait-for-db.sh ]; then echo "ОШИБКА: wait-for-db.sh не найден!"; exit 1; fi
+          if [ ! -d TG_miniApp_back ]; then echo "ОШИБКА: TG_miniApp_back не найден!"; exit 1; fi
+          if [ ! -d TG_miniApp_front ]; then echo "ОШИБКА: TG_miniApp_front не найден!"; exit 1; fi
+          
+          echo "Проверка прав доступа на скрипте wait-for-db.sh..."
+          chmod +x wait-for-db.sh
+          
           if [ ! -f nginx/ssl/fullchain.pem ]; then
             echo "Копирование SSL сертификатов..."
-            sudo cp /etc/letsencrypt/live/findyoursport.ru/fullchain.pem nginx/ssl/ || echo "Сертификаты не найдены"
-            sudo cp /etc/letsencrypt/live/findyoursport.ru/privkey.pem nginx/ssl/ || echo "Сертификаты не найдены"
+            sudo find /etc/letsencrypt/live/ -type d -name "findyoursport.ru*" || echo "Сертификаты не найдены"
+            sudo find /etc/letsencrypt/live/ -type f -name "*.pem" || echo "Сертификаты не найдены"
+            
+            if [ -f /etc/letsencrypt/live/findyoursport.ru/fullchain.pem ]; then
+              sudo cp /etc/letsencrypt/live/findyoursport.ru/fullchain.pem nginx/ssl/
+              sudo cp /etc/letsencrypt/live/findyoursport.ru/privkey.pem nginx/ssl/
+            elif [ -f /etc/letsencrypt/live/www.findyoursport.ru/fullchain.pem ]; then
+              sudo cp /etc/letsencrypt/live/www.findyoursport.ru/fullchain.pem nginx/ssl/
+              sudo cp /etc/letsencrypt/live/www.findyoursport.ru/privkey.pem nginx/ssl/
+            else
+              echo "ВНИМАНИЕ: Сертификаты не найдены! Проверьте пути к сертификатам."
+            fi
+            
             sudo chmod -R 755 nginx/ssl
           fi
           
+          echo "Вывод версий Docker и Docker Compose:"
+          docker --version
+          docker-compose --version
+          
+          echo "Останавливаем контейнеры если они запущены..."
+          docker-compose down || true
+          
+          echo "Удаляем старые образы..."
+          docker system prune -af || true
+          
+          echo "Проверка содержимого файла docker-compose.yml:"
+          cat docker-compose.yml
+          
           echo "Сборка и запуск контейнеров..."
-          docker-compose down
-          docker-compose up -d --build
+          docker-compose build --no-cache
+          docker-compose up -d
           
           echo "Статус контейнеров:"
           docker-compose ps
           
-          echo "Логи сборки:"
-          docker-compose logs --tail=20
+          echo "Логи контейнера базы данных:"
+          docker-compose logs --tail=20 db
+          
+          echo "Логи контейнера бэкенда:"
+          docker-compose logs --tail=20 backend
+          
+          echo "Логи контейнера фронтенда:"
+          docker-compose logs --tail=20 frontend
+          
+          echo "Проверка сетевых подключений между контейнерами:"
+          docker network inspect app-network
           
           echo "Перезапуск Nginx..."
           sudo systemctl restart nginx || true
+          echo "Статус Nginx:"
+          sudo systemctl status nginx || true

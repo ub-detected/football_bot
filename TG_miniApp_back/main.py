@@ -10,11 +10,11 @@ from locations import search_locations, get_all_locations
 from sqlalchemy import or_, text
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "http://localhost:5173"}})  # Разрешаем фронтенд
+# Обновлено: разрешаем все источники для продакшн-среды или findyoursport.ru в продакшн-среде
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Конфигурация базы данных
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://postgres:footbot777Azat@localhost:5432/mydb')
-
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://postgres:footbot777Azat@db/mydb')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)

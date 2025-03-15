@@ -5,17 +5,22 @@ WORKDIR /app
 # Установка netcat для проверки доступности сервисов
 RUN apt-get update && apt-get install -y netcat-openbsd && rm -rf /var/lib/apt/lists/*
 
+# Копируем сначала только requirements.txt для лучшего кеширования
 COPY TG_miniApp_back/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Установка конкретных версий пакетов для обеспечения совместимости
 RUN pip install --no-cache-dir flask==1.1.4 werkzeug==1.0.1 itsdangerous==1.1.0 jinja2==2.11.3 markupsafe==2.0.1
 
+# Копируем весь код приложения
 COPY TG_miniApp_back/ .
+
+# Проверка копирования файлов
+RUN ls -la && echo "----------" && ls -la /app
 
 # Создаем скрипт для ожидания БД
 COPY wait-for-db.sh /wait-for-db.sh
 RUN chmod +x /wait-for-db.sh
 
 # Запуск скрипта ожидания и приложения
-CMD ["/bin/bash", "-c", "/wait-for-db.sh db 5432 && python init_db.py && python main.py --host=0.0.0.0 --port=5001"] 
+CMD ["/bin/bash", "-c", "echo 'Starting app...' && /wait-for-db.sh db 5432 && echo 'DB is ready, initializing...' && python init_db.py && echo 'Starting server...' && python main.py --host=0.0.0.0 --port=5001"] 
