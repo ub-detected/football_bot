@@ -11,31 +11,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
-
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v1
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-
-    - name: Build and push Backend Docker image
-      uses: docker/build-push-action@v4
-      with:
-        context: .
-        file: ./Dockerfile.backend
-        push: true
-        tags: ubdetected/footbot-backend:latest
-
-    - name: Build and push Frontend Docker image
-      uses: docker/build-push-action@v4
-      with:
-        context: .
-        file: ./Dockerfile.frontend
-        push: true
-        tags: ubdetected/footbot-frontend:latest
-
     - name: Generate Docker Compose file
       run: |
         cat > docker-compose.yml << 'EOF'
@@ -77,9 +52,13 @@ jobs:
             restart: always
 
           backend:
-            image: ubdetected/footbot-backend:latest
+            build: 
+              context: .
+              dockerfile: Dockerfile.backend
             expose:
               - "5001"
+            volumes:
+              - ./TG_miniApp_back:/app
             environment:
               - FLASK_ENV=production
               - FLASK_DEBUG=0
@@ -92,9 +71,14 @@ jobs:
             restart: unless-stopped
 
           frontend:
-            image: ubdetected/footbot-frontend:latest
+            build:
+              context: .
+              dockerfile: Dockerfile.frontend
             expose:
               - "5173"
+            volumes:
+              - ./TG_miniApp_front:/app
+              - /app/node_modules
             depends_on:
               - backend
             environment:
@@ -162,13 +146,17 @@ jobs:
         }
         EOF
 
-    - name: Copy Docker Compose and Nginx configs to server
+    - name: Create archive of project
+      run: |
+        tar -czvf project.tar.gz Dockerfile.backend Dockerfile.frontend TG_miniApp_back TG_miniApp_front wait-for-db.sh
+
+    - name: Copy files to server
       uses: appleboy/scp-action@master
       with:
         host: ${{ secrets.SERVER_IP }}
         username: ${{ secrets.USERNAME }}
         password: ${{ secrets.SERVER_PASSWORD }}
-        source: "docker-compose.yml,nginx/conf/default.conf"
+        source: "docker-compose.yml,nginx/conf/default.conf,project.tar.gz"
         target: "/home/footbot"
         strip_components: 0
 
@@ -205,8 +193,11 @@ jobs:
             exit 1
           fi
           
-          echo "Содержимое docker-compose.yml:"
-          cat docker-compose.yml
+          echo "Распаковка исходного кода..."
+          tar -xzvf project.tar.gz
+          
+          echo "Содержимое директории:"
+          ls -la
           
           if [ ! -f nginx/ssl/fullchain.pem ]; then
             echo "Копирование SSL сертификатов..."
@@ -215,19 +206,15 @@ jobs:
             sudo chmod -R 755 nginx/ssl
           fi
           
-          echo "Загрузка Docker образов..."
-          docker pull ubdetected/footbot-backend:latest
-          docker pull ubdetected/footbot-frontend:latest
-          
-          echo "Перезапуск контейнеров..."
+          echo "Сборка и запуск контейнеров..."
           docker-compose down
-          docker-compose up -d
+          docker-compose up -d --build
           
           echo "Статус контейнеров:"
           docker-compose ps
           
-          echo "Логи контейнеров:"
-          docker-compose logs --tail=10
+          echo "Логи сборки:"
+          docker-compose logs --tail=20
           
           echo "Перезапуск Nginx..."
           sudo systemctl restart nginx || true

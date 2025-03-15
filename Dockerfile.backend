@@ -18,4 +18,4 @@ COPY wait-for-db.sh /wait-for-db.sh
 RUN chmod +x /wait-for-db.sh
 
 # Запуск скрипта ожидания и приложения
-CMD ["/bin/bash", "-c", "python init_db.py && /wait-for-db.sh db 5432 && python main.py --host=0.0.0.0 --port=5001"] 
+CMD ["/bin/bash", "-c", "/wait-for-db.sh db 5432 && python init_db.py && python main.py --host=0.0.0.0 --port=5001"] 
