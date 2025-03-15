@@ -1400,16 +1400,28 @@ def parse_telegram_init_data(init_data):
     - dict: Словарь с данными пользователя или None при ошибке
     """
     try:
-        print(f"Начинаем парсинг данных от Telegram. Длина initData: {len(init_data) if init_data else 0} байт")
+        print(f"⭐ Начинаем парсинг данных от Telegram. Длина initData: {len(init_data) if init_data else 0} байт")
         
         # Проверяем, что initData не пустой
         if not init_data:
-            print("Ошибка: initData пустой")
+            print("❌ ОШИБКА: initData пустой")
             return None
         
         # Добавляем более подробное логирование
-        print(f"Исходные данные initData (первые 500 символов): {init_data[:500]}")
-        print(f"Длина initData: {len(init_data)} байт")
+        print(f"⭐ Исходные данные initData (первые 500 символов): {init_data[:500]} ...")
+        
+        # Проверяем наличие данных пользователя напрямую в initDataUnsafe (более надежный способ)
+        try:
+            # Пробуем получить данные пользователя напрямую из глобального WebApp
+            import sys
+            if 'WebApp' in sys.modules:
+                from WebApp import initDataUnsafe
+                if initDataUnsafe and 'user' in initDataUnsafe:
+                    user_data = initDataUnsafe['user']
+                    print(f"✅ Успешно получены данные пользователя из WebApp.initDataUnsafe: {user_data}")
+                    return user_data
+        except Exception as e:
+            print(f"⚠️ Ошибка при получении данных из WebApp.initDataUnsafe: {str(e)}")
         
         # URL-декодирование строки (двойное, если нужно)
         try:
@@ -1418,10 +1430,27 @@ def parse_telegram_init_data(init_data):
             # Иногда данные могут быть закодированы дважды
             if '%' in decoded_data:
                 decoded_data = urllib.parse.unquote(decoded_data)
-            print(f"Декодированная строка initData: {decoded_data[:500]}...")
+            print(f"⭐ Декодированная строка initData (первые 500 символов): {decoded_data[:500]} ...")
         except Exception as e:
-            print(f"Ошибка при декодировании строки: {str(e)}")
+            print(f"⚠️ Ошибка при декодировании строки: {str(e)}")
             decoded_data = init_data  # Используем оригинал, если декодирование не удалось
+        
+        # НОВЫЙ ПОДХОД: Проверяем, не является ли initData полным JSON-объектом
+        try:
+            # Иногда initData может быть просто JSON-строкой
+            direct_json = json.loads(decoded_data)
+            if isinstance(direct_json, dict) and 'user' in direct_json:
+                user_data = direct_json['user']
+                print(f"✅ Обнаружен полный JSON-объект с полем 'user': {user_data}")
+                return user_data
+            elif isinstance(direct_json, dict) and ('id' in direct_json and ('username' in direct_json or 'first_name' in direct_json)):
+                print(f"✅ Обнаружен JSON-объект с данными пользователя: {direct_json}")
+                return direct_json
+        except json.JSONDecodeError:
+            # Это нормально, продолжаем другие методы
+            pass
+        except Exception as e:
+            print(f"⚠️ Ошибка при проверке полного JSON: {str(e)}")
         
         # Попробуем разные подходы к парсингу
         user_data = None
@@ -1435,70 +1464,97 @@ def parse_telegram_init_data(init_data):
                     key, value = item.split('=', 1)
                     params[key] = value
             
-            print(f"Извлеченные параметры: {list(params.keys())}")
+            print(f"⭐ Извлеченные параметры: {list(params.keys())}")
             
             # Ищем данные пользователя в параметрах
             if 'user' in params:
                 try:
                     # Раскодируем JSON из параметра user
                     user_json = urllib.parse.unquote(params['user'])
-                    print(f"Извлеченные данные пользователя JSON: {user_json}")
+                    print(f"⭐ Извлеченные данные пользователя JSON: {user_json}")
                     user_data = json.loads(user_json)
-                    print(f"Успешно извлечены данные пользователя: ID={user_data.get('id')}, username={user_data.get('username')}")
+                    print(f"✅ Успешно извлечены данные пользователя: ID={user_data.get('id')}, username={user_data.get('username')}")
                     return user_data
                 except json.JSONDecodeError as e:
-                    print(f"Ошибка декодирования JSON данных пользователя: {str(e)}")
-                    print(f"Проблемный JSON: {user_json}")
+                    print(f"⚠️ Ошибка декодирования JSON данных пользователя: {str(e)}")
+                    print(f"⚠️ Проблемный JSON: {user_json}")
             else:
-                print(f"Параметр 'user' не найден. Доступные параметры: {list(params.keys())}")
+                print(f"⚠️ Параметр 'user' не найден. Доступные параметры: {list(params.keys())}")
                 
                 # Проверяем альтернативные форматы данных
                 # Telegram Web Apps может передавать данные в разных форматах
                 for key in params:
                     if 'user' in key.lower() or 'tguser' in key.lower():
                         try:
-                            print(f"Пробуем получить пользователя из параметра {key}")
+                            print(f"⭐ Пробуем получить пользователя из параметра {key}")
                             potential_user_data = json.loads(urllib.parse.unquote(params[key]))
                             if 'id' in potential_user_data:
-                                print(f"Найдены данные пользователя в поле {key}")
+                                print(f"✅ Найдены данные пользователя в поле {key}")
                                 return potential_user_data
                         except Exception as e:
-                            print(f"Ошибка при попытке получить пользователя из {key}: {str(e)}")
+                            print(f"⚠️ Ошибка при попытке получить пользователя из {key}: {str(e)}")
         except Exception as e:
-            print(f"Ошибка при разборе параметров запроса: {str(e)}")
+            print(f"⚠️ Ошибка при разборе параметров запроса: {str(e)}")
         
         # Подход 2: Поиск JSON объекта в строке
         try:
-            print("Поиск пользовательских данных прямым поиском в строке...")
+            print("⭐ Поиск пользовательских данных прямым поиском в строке...")
             # Поиск JSON объекта в строке, который может содержать пользовательские данные
             import re
-            # Ищем структуры типа {"id":123456789,"first_name":"Name",...}
-            json_pattern = r'\{"id":[0-9]+.*?"[\}\]]'
-            json_matches = re.findall(json_pattern, decoded_data)
             
-            for potential_json in json_matches:
-                try:
-                    # Фиксируем возможные незакрытые скобки
-                    if not potential_json.endswith('}') and not potential_json.endswith(']'):
-                        potential_json += '}'
-                    
-                    print(f"Найден потенциальный JSON: {potential_json}")
-                    data = json.loads(potential_json)
-                    if 'id' in data:
-                        print(f"Найдены данные пользователя в строке: {data}")
-                        return data
-                except json.JSONDecodeError:
-                    # Пробуем другой вариант фиксации
+            # Обновленный паттерн для поиска JSON объектов с данными пользователя
+            json_patterns = [
+                r'{"id":[0-9]+.*?}', # Стандартный объект JSON с id
+                r'{"user":\s*{"id":[0-9]+.*?}}', # Объект с вложенным user
+                r'"user":\s*{"id":[0-9]+.*?}', # Фрагмент JSON с user
+                r'"id":[0-9]+.*?"[\}\]]' # Фрагмент JSON с id
+            ]
+            
+            for pattern in json_patterns:
+                json_matches = re.findall(pattern, decoded_data)
+                print(f"⭐ Найдено {len(json_matches)} потенциальных JSON объектов по паттерну {pattern}")
+                
+                for i, potential_json in enumerate(json_matches):
                     try:
-                        potential_json = potential_json.replace('"}', '"}]')
-                        data = json.loads(potential_json)
-                        if 'id' in data:
-                            print(f"Найдены данные пользователя после коррекции: {data}")
-                            return data
-                    except:
-                        print(f"Не удалось разобрать JSON: {potential_json}")
+                        # Фиксируем возможные незакрытые скобки
+                        if not potential_json.endswith('}') and not potential_json.endswith(']'):
+                            potential_json += '}'
+                        
+                        print(f"⭐ Анализ потенциального JSON #{i+1}: {potential_json[:100]}...")
+                        
+                        # Пробуем разные варианты исправления JSON
+                        possible_json_fixes = [
+                            potential_json,  # Оригинал без изменений
+                            potential_json + '}' if not potential_json.endswith('}') else potential_json,  # Добавляем закрывающую скобку
+                            '{' + potential_json if not potential_json.startswith('{') else potential_json  # Добавляем открывающую скобку
+                        ]
+                        
+                        for fix_attempt, fixed_json in enumerate(possible_json_fixes):
+                            try:
+                                data = json.loads(fixed_json)
+                                
+                                # Обрабатываем случай, когда у нас есть вложенный объект user
+                                if isinstance(data, dict) and 'user' in data and isinstance(data['user'], dict):
+                                    if 'id' in data['user']:
+                                        print(f"✅ Найдены данные пользователя в поле 'user': {data['user']}")
+                                        return data['user']
+                                
+                                # Прямой объект пользователя
+                                if isinstance(data, dict) and 'id' in data:
+                                    print(f"✅ Найдены данные пользователя в JSON: {data}")
+                                    return data
+                                
+                                print(f"⚠️ JSON обработан, но данные пользователя не найдены: {data}")
+                                
+                            except json.JSONDecodeError as json_err:
+                                if fix_attempt == len(possible_json_fixes) - 1:
+                                    print(f"⚠️ Не удалось разобрать JSON после всех попыток исправления: {str(json_err)}")
+                            except Exception as e:
+                                print(f"⚠️ Другая ошибка при обработке JSON: {str(e)}")
+                    except Exception as e:
+                        print(f"⚠️ Ошибка при обработке потенциального JSON: {str(e)}")
         except Exception as e:
-            print(f"Ошибка при поиске JSON в строке: {str(e)}")
+            print(f"⚠️ Общая ошибка при поиске JSON в строке: {str(e)}")
         
         # Подход 3: Проверка initDataUnsafe (для случая, когда данные могут быть в другом формате)
         try:
@@ -1507,22 +1563,41 @@ def parse_telegram_init_data(init_data):
             unsafe_matches = re.findall(unsafe_pattern, decoded_data)
             for unsafe_json in unsafe_matches:
                 try:
-                    print(f"Найден initDataUnsafe: {unsafe_json}")
+                    print(f"⭐ Найден initDataUnsafe: {unsafe_json[:100]}...")
                     data = json.loads(unsafe_json)
                     if 'user' in data and 'id' in data['user']:
-                        print(f"Найдены данные пользователя в initDataUnsafe: {data['user']}")
+                        print(f"✅ Найдены данные пользователя в initDataUnsafe: {data['user']}")
                         return data['user']
-                except:
-                    print(f"Не удалось разобрать JSON из initDataUnsafe: {unsafe_json}")
+                except Exception as e:
+                    print(f"⚠️ Не удалось разобрать JSON из initDataUnsafe: {str(e)}")
         except Exception as e:
-            print(f"Ошибка при поиске initDataUnsafe: {str(e)}")
+            print(f"⚠️ Ошибка при поиске initDataUnsafe: {str(e)}")
+        
+        # ПОСЛЕДНЯЯ ПОПЫТКА: Создаем минимальные данные пользователя из параметров запроса
+        try:
+            # Если ничего не сработало, но есть параметры запроса, можем попробовать создать
+            # минимальные данные пользователя из параметров
+            user_id_param = params.get('id') or params.get('user_id') or params.get('tgUserId')
+            username_param = params.get('username') or params.get('tgUserName')
+            first_name_param = params.get('first_name') or params.get('firstName') or params.get('tgFirstName')
+            
+            if user_id_param:
+                synthetic_user = {
+                    'id': int(user_id_param) if user_id_param.isdigit() else user_id_param,
+                    'username': username_param if username_param else None,
+                    'first_name': first_name_param if first_name_param else None
+                }
+                print(f"⭐ Создан синтетический пользователь из параметров запроса: {synthetic_user}")
+                return synthetic_user
+        except Exception as e:
+            print(f"⚠️ Ошибка при создании синтетического пользователя: {str(e)}")
         
         # Если все методы не сработали, возвращаем None
-        print("Все методы извлечения данных пользователя не сработали. Данные не найдены.")
+        print("❌ Все методы извлечения данных пользователя не сработали. Данные не найдены.")
         return None
     except Exception as e:
         import traceback
-        print(f"Общая ошибка при парсинге initData: {str(e)}")
+        print(f"❌ Общая ошибка при парсинге initData: {str(e)}")
         print(traceback.format_exc())
         return None
 

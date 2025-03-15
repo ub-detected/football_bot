@@ -31,18 +31,20 @@ export const userApi = {
   // Аутентификация через Telegram
   authWithTelegram: async (): Promise<User> => {
     try {
-      console.log('WebApp object available:', WebApp ? 'Yes' : 'No');
+      console.log('🔍 Вызвана функция authWithTelegram()');
+      console.log('🔍 WebApp object available:', WebApp ? 'Yes' : 'No');
       
       // Получаем initData из Telegram Web App
       const initData = WebApp.initData;
       
       // Детальная проверка и отладка данных Telegram
-      console.log('initData length:', initData ? initData.length : 'undefined');
-      console.log('initDataUnsafe available:', WebApp.initDataUnsafe ? 'Yes' : 'No');
+      console.log('🔍 initData length:', initData ? initData.length : 'undefined');
+      console.log('🔍 initData first 100 chars:', initData ? initData.substring(0, 100) + '...' : 'undefined');
+      console.log('🔍 initDataUnsafe available:', WebApp.initDataUnsafe ? 'Yes' : 'No');
       
       if (WebApp.initDataUnsafe && WebApp.initDataUnsafe.user) {
         const user = WebApp.initDataUnsafe.user;
-        console.log('Telegram user data:', {
+        console.log('🔍 Telegram user data:', {
           id: user.id,
           username: user.username,
           first_name: user.first_name,
@@ -50,14 +52,21 @@ export const userApi = {
           photo_url: user.photo_url,
           language_code: user.language_code
         });
+      } else {
+        console.error('⚠️ WebApp.initDataUnsafe.user отсутствует или пустой');
       }
       
       if (!initData) {
-        console.error('WebApp.initData не доступен');
+        console.error('❌ WebApp.initData не доступен');
         throw new Error('Telegram WebApp initData is not available');
       }
       
-      console.log(`Sending Telegram initData (${initData.length} chars) to the server`);
+      // Тест непустого initData и отсутствия user
+      if (initData && (!WebApp.initDataUnsafe || !WebApp.initDataUnsafe.user)) {
+        console.warn('⚠️ ПРЕДУПРЕЖДЕНИЕ: initData есть, но данных пользователя нет. Возможно, пропущена авторизация в Telegram.');
+      }
+      
+      console.log(`🔍 Sending Telegram initData (${initData.length} chars) to the server`);
       
       // Отправляем данные на сервер для проверки и аутентификации
       const response = await fetch(`${API_URL}/auth/telegram`, {
@@ -68,18 +77,37 @@ export const userApi = {
         body: JSON.stringify({ initData })
       });
       
+      // Проверка ответа от сервера
+      console.log(`🔍 Получен ответ от сервера: ${response.status} ${response.statusText}`);
+
+      // Если ответ не успешный, пытаемся получить текст ошибки
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Failed to authenticate with Telegram:', errorText);
-        throw new Error(`Failed to authenticate with Telegram: ${response.status} ${errorText}`);
+        let errorText;
+        try {
+          errorText = await response.text();
+        } catch (textError) {
+          errorText = 'Не удалось получить текст ошибки';
+        }
+        
+        console.error(`❌ Ошибка аутентификации через Telegram: ${response.status} ${response.statusText}`);
+        console.error(`❌ Тело ответа: ${errorText}`);
+        throw new Error(`Ошибка аутентификации через Telegram: ${response.status} ${errorText}`);
       }
       
+      // Получаем и проверяем данные пользователя
       const userData = await response.json();
-      console.log('Успешная аутентификация через Telegram', userData);
+      
+      if (!userData || !userData.id) {
+        console.error('❌ Получены некорректные данные пользователя:', userData);
+        throw new Error('Получены некорректные данные пользователя');
+      }
+      
+      console.log('✅ Успешная аутентификация через Telegram', userData);
       return userData;
-    } catch (error) {
-      console.error('Ошибка при аутентификации через Telegram:', error);
-      return handleApiError(error);
+    } catch (error: any) {
+      console.error('❌ Ошибка при аутентификации через Telegram:', error);
+      console.error('❌ Стек ошибки:', error?.stack);
+      throw error;
     }
   },
   

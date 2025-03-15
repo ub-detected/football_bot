@@ -12,6 +12,7 @@ const Profile = () => {
   const [error, setError] = useState<string | null>(null);
   const [gameHistory, setGameHistory] = useState<GameHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
   
   // Предотвращаем постоянные обновления
   const isFirstRender = useRef(true);
@@ -20,19 +21,21 @@ const Profile = () => {
   const fetchUserData = useCallback(async () => {
     try {
       setLoading(true);
-      console.log("Начинаем загрузку данных пользователя...");
+      console.log("⭐ Начинаем загрузку данных пользователя...");
+      setDebugInfo("Загрузка данных пользователя...");
       
       // Проверяем доступность Telegram WebApp
       if (typeof WebApp !== 'undefined' && WebApp.initData) {
-        console.log("Пытаемся авторизоваться через Telegram WebApp...");
-        console.log("WebApp данные доступны:", !!WebApp.initData);
-        console.log("WebApp.initDataUnsafe доступен:", !!WebApp.initDataUnsafe);
+        console.log("⭐ Пытаемся авторизоваться через Telegram WebApp...");
+        console.log("⭐ WebApp данные доступны:", !!WebApp.initData);
+        console.log("⭐ WebApp.initDataUnsafe доступен:", !!WebApp.initDataUnsafe);
+        setDebugInfo("Авторизация через Telegram API...");
         
         try {
           // Выводим информацию о пользователе из Telegram (для отладки)
           if (WebApp.initDataUnsafe && WebApp.initDataUnsafe.user) {
             const tgUser = WebApp.initDataUnsafe.user;
-            console.log("Данные пользователя из Telegram:", {
+            console.log("⭐ Данные пользователя из Telegram:", {
               id: tgUser.id, 
               username: tgUser.username, 
               firstName: tgUser.first_name,
@@ -40,35 +43,44 @@ const Profile = () => {
               photoUrl: tgUser.photo_url,
               languageCode: tgUser.language_code
             });
+            setDebugInfo(`Получены данные из Telegram: ID=${tgUser.id}, имя=${tgUser.username || tgUser.first_name || 'Не указано'}`);
           } else {
-            console.log("initDataUnsafe.user недоступен");
+            console.log("⚠️ initDataUnsafe.user недоступен");
+            setDebugInfo("Ошибка: initDataUnsafe.user недоступен");
           }
           
-          // Аутентификация через Telegram - всегда используем этот метод, 
-          // чтобы получить актуальные данные пользователя
-          console.log("Отправляем запрос на авторизацию через Telegram API...");
+          // Аутентификация через Telegram
+          console.log("⭐ Отправляем запрос на авторизацию через Telegram API...");
+          setDebugInfo("Отправка запроса авторизации...");
+          
           const userData = await userApi.authWithTelegram();
-          console.log("Успешная аутентификация через Telegram", userData);
+          console.log("✅ Успешная аутентификация через Telegram", userData);
           setUser(userData);
           setError(null);
+          setDebugInfo(null);
           return;
-        } catch (authError) {
-          console.error('Ошибка аутентификации через Telegram:', authError);
+        } catch (authError: any) {
+          console.error('❌ Ошибка аутентификации через Telegram:', authError);
+          setDebugInfo(`Ошибка Telegram: ${authError?.message || 'Неизвестная ошибка'}`);
           // Если аутентификация через Telegram не удалась, пробуем обычный метод
         }
       } else {
-        console.log("Telegram WebApp API недоступен, используем резервный метод");
+        console.log("⚠️ Telegram WebApp API недоступен, используем резервный метод");
+        setDebugInfo("Telegram WebApp API недоступен. Использую резервный метод...");
       }
       
       // Запасной вариант - получение текущего пользователя через обычный API
-      console.log("Используем запасной метод получения данных пользователя...");
+      console.log("⭐ Используем запасной метод получения данных пользователя...");
+      setDebugInfo("Использую резервный метод получения данных...");
       const userData = await userApi.getCurrentUser();
-      console.log("Получены данные пользователя через обычный API", userData);
+      console.log("✅ Получены данные пользователя через обычный API", userData);
       setUser(userData);
       setError(null);
-    } catch (err) {
-      console.error("Ошибка при получении данных пользователя:", err);
+      setDebugInfo(null);
+    } catch (err: any) {
+      console.error("❌ Ошибка при получении данных пользователя:", err);
       setError('Не удалось загрузить данные пользователя. Пожалуйста, попробуйте позже.');
+      setDebugInfo(`Ошибка: ${err?.message || JSON.stringify(err) || 'Неизвестная ошибка'}`);
     } finally {
       setLoading(false);
     }
@@ -146,10 +158,26 @@ const Profile = () => {
           <div className="flex flex-col items-center">
             <div className="w-24 h-24 rounded-full bg-blue-400 animate-pulse"></div>
             <div className="h-6 w-32 bg-blue-400 rounded mt-4 animate-pulse"></div>
+            {debugInfo && (
+              <div className="mt-2 text-xs bg-blue-700 p-2 rounded text-center">
+                {debugInfo}
+              </div>
+            )}
           </div>
         ) : error ? (
           <div className="text-center">
             <p>Ошибка загрузки профиля</p>
+            {debugInfo && (
+              <div className="mt-2 text-xs bg-red-700 p-2 rounded text-center">
+                {debugInfo}
+              </div>
+            )}
+            <button 
+              onClick={() => fetchUserData()}
+              className="mt-3 bg-white/20 text-white px-4 py-2 rounded-full text-sm"
+            >
+              Повторить
+            </button>
           </div>
         ) : user && (
           <div className="flex flex-col items-center">
@@ -157,6 +185,10 @@ const Profile = () => {
               src={user.photoUrl}
               alt={user.username}
               className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+              onError={(e) => {
+                console.error("Ошибка загрузки изображения");
+                e.currentTarget.src = "https://via.placeholder.com/150?text=User";
+              }}
             />
             <h1 className="text-2xl font-bold mt-4">{user.username}</h1>
             
