@@ -2,7 +2,7 @@ name: Build and Deploy
 
 on:
   push:
-    branches: [ LeshaCiCd ]
+    branches: [ Azat2 ]
 
 jobs:
   build-and-deploy:
