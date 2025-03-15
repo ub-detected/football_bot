@@ -13,9 +13,40 @@ const Profile = () => {
   const [gameHistory, setGameHistory] = useState<GameHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
+  const [authenticating, setAuthenticating] = useState(false);
   
   // Предотвращаем постоянные обновления
   const isFirstRender = useRef(true);
+
+  // Функция для прямой попытки авторизации через Telegram
+  const authenticateWithTelegram = useCallback(async () => {
+    try {
+      setAuthenticating(true);
+      setDebugInfo("🔑 Пытаемся авторизоваться через Telegram...");
+      
+      // Проверяем доступность Telegram WebApp
+      if (typeof WebApp !== 'undefined' && WebApp.initData) {
+        console.log("⭐ Прямая авторизация через Telegram WebApp...");
+        
+        const userData = await userApi.authWithTelegram();
+        console.log("✅ Успешная аутентификация через Telegram", userData);
+        setUser(userData);
+        setError(null);
+        setDebugInfo(null);
+      } else {
+        console.log("❌ Telegram WebApp API недоступен для прямой авторизации");
+        setDebugInfo("Telegram WebApp API недоступен. Обновите страницу или откройте приложение через Telegram.");
+        setError("Telegram API недоступен. Убедитесь, что вы открыли приложение через Telegram.");
+      }
+    } catch (err: any) {
+      console.error("❌ Ошибка при авторизации через Telegram:", err);
+      setError(`Не удалось авторизоваться. ${err?.message || 'Неизвестная ошибка'}`);
+      setDebugInfo(`Ошибка авторизации: ${err?.message || JSON.stringify(err) || 'Неизвестная ошибка'}`);
+    } finally {
+      setAuthenticating(false);
+      setLoading(false);
+    }
+  }, []);
 
   // Функция для загрузки данных пользователя
   const fetchUserData = useCallback(async () => {
@@ -74,17 +105,33 @@ const Profile = () => {
       setDebugInfo("Использую резервный метод получения данных...");
       const userData = await userApi.getCurrentUser();
       console.log("✅ Получены данные пользователя через обычный API", userData);
+      
+      // Проверяем, нужна ли авторизация через Telegram
+      if (userData.needs_auth) {
+        console.log("⚠️ Сервер запрашивает авторизацию через Telegram");
+        setDebugInfo("Требуется авторизация через Telegram");
+        // Пробуем авторизоваться
+        return await authenticateWithTelegram();
+      }
+      
       setUser(userData);
       setError(null);
       setDebugInfo(null);
     } catch (err: any) {
       console.error("❌ Ошибка при получении данных пользователя:", err);
-      setError('Не удалось загрузить данные пользователя. Пожалуйста, попробуйте позже.');
-      setDebugInfo(`Ошибка: ${err?.message || JSON.stringify(err) || 'Неизвестная ошибка'}`);
+      const errorMessage = err?.message || 'Failed to fetch current user';
+      setError(errorMessage);
+      
+      // Если ошибка "Failed to fetch current user", предлагаем авторизацию через Telegram
+      if (errorMessage.includes('Failed to fetch current user')) {
+        setDebugInfo('Не удалось получить пользователя. Требуется авторизация через Telegram.');
+      } else {
+        setDebugInfo(`Ошибка: ${err?.message || JSON.stringify(err) || 'Неизвестная ошибка'}`);
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [authenticateWithTelegram]);
 
   // Функция для загрузки истории игр
   const fetchGameHistory = useCallback(async () => {
@@ -166,18 +213,33 @@ const Profile = () => {
           </div>
         ) : error ? (
           <div className="text-center">
-            <p>Ошибка загрузки профиля</p>
+            <h2 className="text-xl font-bold mb-2">Ошибка загрузки профиля</h2>
+            <div className="bg-red-600 text-white p-3 rounded-lg mb-3">
+              <p>Ошибка: {error}</p>
+            </div>
             {debugInfo && (
-              <div className="mt-2 text-xs bg-red-700 p-2 rounded text-center">
+              <div className="mt-2 text-xs bg-red-700 p-2 rounded text-center mb-3">
                 {debugInfo}
               </div>
             )}
-            <button 
-              onClick={() => fetchUserData()}
-              className="mt-3 bg-white/20 text-white px-4 py-2 rounded-full text-sm"
-            >
-              Повторить
-            </button>
+            
+            <div className="flex flex-col space-y-2">
+              <button 
+                onClick={fetchUserData}
+                disabled={authenticating}
+                className="bg-white/20 text-white px-4 py-2 rounded-full text-sm disabled:opacity-50"
+              >
+                {authenticating ? 'Загрузка...' : 'Повторить'}
+              </button>
+              
+              <button
+                onClick={authenticateWithTelegram}
+                disabled={authenticating}
+                className="bg-white text-blue-600 px-4 py-2 rounded-full text-sm font-medium disabled:opacity-50"
+              >
+                {authenticating ? 'Авторизация...' : 'Авторизоваться через Telegram'}
+              </button>
+            </div>
           </div>
         ) : user && (
           <div className="flex flex-col items-center">
@@ -225,7 +287,8 @@ const Profile = () => {
           </div>
         ) : error ? (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl">
-            {error}
+            <p className="font-medium">Не удалось загрузить данные профиля</p>
+            <p className="text-sm mt-1">Пожалуйста, убедитесь, что вы открыли приложение через Telegram и попробуйте снова.</p>
           </div>
         ) : user && (
           <>

@@ -5,7 +5,11 @@ export interface User {
   score: number;
   gamesPlayed: number;
   gamesWon: number;
+  telegramId?: string;
+  createdAt?: string;
+  scoreMismatchCount?: number;
   themePreference?: 'light' | 'dark';
+  needs_auth?: boolean;
 }
 
 export interface GameHistory {
