@@ -21,12 +21,41 @@ const Profile = () => {
     try {
       setLoading(true);
       
-      // Просто получаем текущего пользователя, так как инициализация Telegram
-      // уже выполнена в компоненте App
+      // Проверяем доступность Telegram WebApp
+      if (typeof WebApp !== 'undefined' && WebApp.initData) {
+        console.log("Пытаемся авторизоваться через Telegram WebApp...");
+        
+        try {
+          // Выводим информацию о пользователе из Telegram (для отладки)
+          if (WebApp.initDataUnsafe && WebApp.initDataUnsafe.user) {
+            const tgUser = WebApp.initDataUnsafe.user;
+            console.log("Данные пользователя из Telegram:", 
+              `ID:${tgUser.id}, Username:${tgUser.username}, FirstName:${tgUser.first_name}`);
+          } else {
+            console.log("initDataUnsafe.user недоступен");
+          }
+          
+          // Аутентификация через Telegram
+          const userData = await userApi.authWithTelegram();
+          console.log("Успешная аутентификация через Telegram");
+          setUser(userData);
+          setError(null);
+          return;
+        } catch (authError) {
+          console.error('Ошибка аутентификации через Telegram:', authError);
+          // Если аутентификация через Telegram не удалась, пробуем обычный метод
+        }
+      } else {
+        console.log("Telegram WebApp API недоступен, используем резервный метод");
+      }
+      
+      // Запасной вариант - получение текущего пользователя через обычный API
       const userData = await userApi.getCurrentUser();
+      console.log("Получены данные пользователя через обычный API");
       setUser(userData);
       setError(null);
     } catch (err) {
+      console.error("Ошибка при получении данных пользователя:", err);
       setError('Не удалось загрузить данные пользователя. Пожалуйста, попробуйте позже.');
     } finally {
       setLoading(false);

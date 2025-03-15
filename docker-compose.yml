@@ -42,7 +42,7 @@ services:
       - FLASK_ENV=production
       - FLASK_DEBUG=0
       - DATABASE_URL=postgresql://postgres:footbot777Azat@db/mydb
-      - BOT_TOKEN=${BOT_TOKEN:-your_bot_token_here}
+      - BOT_TOKEN=${BOT_TOKEN:-7853279188:AAGIYneVvdM1WqDka32zv3AdW8d2pCZLr4c}
     depends_on:
       - db
     networks:
