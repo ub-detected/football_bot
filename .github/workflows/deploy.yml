@@ -33,8 +33,11 @@ jobs:
               - POSTGRES_PASSWORD=footbot777Azat
               - POSTGRES_USER=postgres
               - POSTGRES_DB=mydb
-            ports:
-              - "5432:5432"
+            # Не публикуем порт наружу, а используем только внутреннюю сеть
+            # ports:
+            #  - "5432:5432"
+            expose:
+              - "5432"
             networks:
               - app-network
             healthcheck:
@@ -228,6 +231,22 @@ jobs:
           if [ ! -d TG_miniApp_back ]; then echo "ОШИБКА: TG_miniApp_back не найден!"; exit 1; fi
           if [ ! -d TG_miniApp_front ]; then echo "ОШИБКА: TG_miniApp_front не найден!"; exit 1; fi
           
+          echo "Проверка занятости портов..."
+          echo "Порт 5432 (PostgreSQL):"
+          sudo netstat -tulpn | grep 5432 || echo "Порт 5432 свободен"
+          echo "Порт 80 (HTTP):"
+          sudo netstat -tulpn | grep 80 || echo "Порт 80 свободен"
+          echo "Порт 443 (HTTPS):"
+          sudo netstat -tulpn | grep 443 || echo "Порт 443 свободен"
+          
+          echo "Останавливаем все запущенные контейнеры..."
+          docker stop $(docker ps -aq) || true
+          docker rm $(docker ps -aq) || true
+          
+          echo "Остановка конфликтующих сервисов, если они запущены..."
+          # Если на сервере уже есть PostgreSQL, останавливаем его
+          sudo systemctl stop postgresql.service || true
+          
           echo "Проверка прав доступа на скрипте wait-for-db.sh..."
           chmod +x wait-for-db.sh
           
@@ -269,14 +288,17 @@ jobs:
           echo "Статус контейнеров:"
           docker-compose ps
           
+          # Ожидаем небольшую паузу для запуска контейнеров
+          sleep 10
+          
           echo "Логи контейнера базы данных:"
-          docker-compose logs --tail=20 db
+          docker-compose logs db
           
           echo "Логи контейнера бэкенда:"
-          docker-compose logs --tail=20 backend
+          docker-compose logs backend
           
-          echo "Логи контейнера фронтенда:"
-          docker-compose logs --tail=20 frontend
+          echo "Логи контейнера nginx:"
+          docker-compose logs nginx
           
           echo "Проверка сетевых подключений между контейнерами:"
           docker network inspect app-network

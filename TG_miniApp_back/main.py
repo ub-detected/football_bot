@@ -14,7 +14,9 @@ app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Конфигурация базы данных
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://postgres:footbot777Azat@db/mydb')
+database_url = os.environ.get('DATABASE_URL', 'postgresql://postgres:footbot777Azat@db/mydb')
+print(f"Подключение к базе данных по адресу: {database_url}")
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
