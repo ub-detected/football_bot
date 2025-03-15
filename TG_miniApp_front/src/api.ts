@@ -31,8 +31,26 @@ export const userApi = {
   // Аутентификация через Telegram
   authWithTelegram: async (): Promise<User> => {
     try {
+      console.log('WebApp object available:', WebApp ? 'Yes' : 'No');
+      
       // Получаем initData из Telegram Web App
       const initData = WebApp.initData;
+      
+      // Детальная проверка и отладка данных Telegram
+      console.log('initData length:', initData ? initData.length : 'undefined');
+      console.log('initDataUnsafe available:', WebApp.initDataUnsafe ? 'Yes' : 'No');
+      
+      if (WebApp.initDataUnsafe && WebApp.initDataUnsafe.user) {
+        const user = WebApp.initDataUnsafe.user;
+        console.log('Telegram user data:', {
+          id: user.id,
+          username: user.username,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          photo_url: user.photo_url,
+          language_code: user.language_code
+        });
+      }
       
       if (!initData) {
         console.error('WebApp.initData не доступен');

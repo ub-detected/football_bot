@@ -1234,6 +1234,8 @@ def auth_telegram():
         # Получаем данные инициализации от Telegram
         init_data = request.json.get('initData', '')
         
+        print(f"Начато аутентификацию Telegram, получено {len(init_data) if init_data else 0} байт данных")
+        
         # Проверяем подпись от Telegram 
         bot_token = os.environ.get('BOT_TOKEN')
         if not bot_token:
@@ -1242,11 +1244,14 @@ def auth_telegram():
             if not validate_telegram_data(init_data, bot_token):
                 print("ОШИБКА: Невалидные данные от Telegram!")
                 return jsonify({'error': 'Invalid Telegram data'}), 403
+            else:
+                print("Подпись Telegram успешно проверена")
         
         # Парсим данные пользователя из initData
         user_data = parse_telegram_init_data(init_data)
         
         if not user_data or 'id' not in user_data:
+            print("Не удалось получить данные пользователя из initData")
             return jsonify({'error': 'Missing user data in Telegram init data'}), 400
         
         # Обязательные и необязательные поля
@@ -1263,27 +1268,21 @@ def auth_telegram():
         if not display_name:
             display_name = f"User {tg_id}"
         
+        print(f"Данные пользователя из Telegram: ID={tg_id}, имя={display_name}, фото={tg_photo_url}")
+        
         # Ищем пользователя по Telegram ID
         user = User.query.filter_by(telegram_id=tg_id).first()
         
         # Если пользователь найден, обновляем его данные при необходимости
         if user:
-            data_updated = False
+            print(f"Найден существующий пользователь: ID={user.id}, имя={user.username}, фото={user.photo_url}")
             
-            # Обновляем имя пользователя, если оно изменилось и новое значение не пустое
-            if display_name and user.username != display_name:
-                user.username = display_name
-                data_updated = True
-                
-            # Обновляем фото, если оно изменилось и новое значение не пустое
-            if tg_photo_url and user.photo_url != tg_photo_url:
-                user.photo_url = tg_photo_url
-                data_updated = True
-                
-            # Сохраняем изменения, если были обновления
-            if data_updated:
-                print(f"Обновлены данные пользователя {tg_id}: имя={display_name}, фото={tg_photo_url}")
-                db.session.commit()
+            # ВСЕГДА обновляем данные пользователя на новые из Telegram
+            user.username = display_name
+            user.photo_url = tg_photo_url
+            
+            print(f"Данные пользователя обновлены: имя={display_name}, фото={tg_photo_url}")
+            db.session.commit()
         else:
             # Если пользователь не найден, создаем нового
             user = User(
@@ -1300,7 +1299,9 @@ def auth_telegram():
         current_user_id = user.id
         
         # Возвращаем данные пользователя
-        return jsonify(user.to_dict())
+        user_dict = user.to_dict()
+        print(f"Возвращаем данные пользователя: {user_dict}")
+        return jsonify(user_dict)
     
     except Exception as e:
         print(f"Error authenticating Telegram user: {str(e)}")
@@ -1324,10 +1325,14 @@ def parse_telegram_init_data(init_data):
             print("Ошибка: initData пустой")
             return None
         
+        # Добавляем более подробное логирование
+        print(f"Длина initData: {len(init_data)} байт")
+        
         # URL-декодирование строки
         try:
             # Попытка декодирования URL-encoded строки
             decoded_data = urllib.parse.unquote(init_data)
+            print(f"Декодированная строка initData: {decoded_data[:100]}...")
         except Exception as e:
             print(f"Ошибка при декодировании строки: {str(e)}")
             decoded_data = init_data  # Используем оригинал, если декодирование не удалось
@@ -1339,28 +1344,54 @@ def parse_telegram_init_data(init_data):
                 key, value = item.split('=', 1)
                 params[key] = value
         
+        print(f"Извлеченные параметры: {list(params.keys())}")
+        
         # Ищем данные пользователя в параметрах
         if 'user' in params:
             try:
                 # Раскодируем JSON из параметра user
                 user_json = urllib.parse.unquote(params['user'])
+                print(f"Извлеченные данные пользователя JSON: {user_json}")
                 user_data = json.loads(user_json)
                 print(f"Успешно извлечены данные пользователя: ID={user_data.get('id')}, username={user_data.get('username')}")
                 return user_data
             except json.JSONDecodeError as e:
                 print(f"Ошибка декодирования JSON данных пользователя: {str(e)}")
+                print(f"Проблемный JSON: {user_json}")
         else:
+            print(f"Параметр 'user' не найден. Доступные параметры: {list(params.keys())}")
+            
             # Проверяем альтернативные форматы данных
             # Telegram Web Apps может передавать данные в разных форматах
             for key in params:
                 if 'user' in key.lower() or 'tguser' in key.lower():
                     try:
+                        print(f"Пробуем получить пользователя из параметра {key}")
                         potential_user_data = json.loads(urllib.parse.unquote(params[key]))
                         if 'id' in potential_user_data:
                             print(f"Найдены данные пользователя в поле {key}")
                             return potential_user_data
+                    except Exception as e:
+                        print(f"Ошибка при попытке получить пользователя из {key}: {str(e)}")
+            
+            # Если не нашли user, пробуем поискать во всей строке
+            print("Поиск пользовательских данных в полной строке...")
+            try:
+                # Поиск JSON объекта в строке, который может содержать пользовательские данные
+                import re
+                json_pattern = r'\{[^{}]*"id":[^{}]*\}'
+                json_matches = re.findall(json_pattern, decoded_data)
+                
+                for potential_json in json_matches:
+                    try:
+                        data = json.loads(potential_json)
+                        if 'id' in data:
+                            print(f"Найдены данные пользователя в строке: {data}")
+                            return data
                     except:
                         pass
+            except Exception as e:
+                print(f"Ошибка при поиске JSON в строке: {str(e)}")
             
             print("Данные пользователя не найдены в initData")
         
